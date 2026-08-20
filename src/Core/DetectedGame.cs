@@ -14,5 +14,6 @@ internal sealed class DetectedGame
     public long SteamApiArchiveLength;
     public string Architecture;
     public string InterfaceVersion;
+    public bool UsesCompatibilityProvider;
 }
 }

@@ -65,10 +65,19 @@ internal static class SteamGameDetector
             ArchivedSteamApi archived = FindArchivedSteamApi(game.RootDirectory) ?? FindEmbeddedCabSteamApi(game.RootDirectory);
             if (archived == null)
             {
+                string compatibilityProvider = FindCompatibilitySteamApi(game.RootDirectory, game.AppId);
+                if (!string.IsNullOrEmpty(compatibilityProvider))
+                {
+                    game.SteamApiPath = compatibilityProvider;
+                    game.Architecture = "x64";
+                    game.InterfaceVersion = "AUTO";
+                    game.UsesCompatibilityProvider = true;
+                    return game;
+                }
                 if (string.Equals(game.AppId, "1515950", StringComparison.Ordinal))
                     throw new InvalidOperationException(M(english,
-                        "Capcom Arcade Stadium dùng Enigma Protector và không để Steam API thành DLL/JAR/CAB có thể tách trên ổ đĩa. Game có 20 achievement Steam, nhưng bản tool hiện tại không thể claim an toàn khi Steam API chỉ được nạp trong bộ nhớ lúc game đang chạy.",
-                        "Capcom Arcade Stadium uses Enigma Protector and does not expose Steam API as an extractable DLL/JAR/CAB on disk. The game has 20 Steam achievements, but this build cannot safely claim them when the Steam API exists only in memory while the game is running."));
+                        "Capcom Arcade Stadium cần một Steam API x64 tương thích từ thư viện Steam cục bộ, nhưng không tìm thấy provider phù hợp. Hãy cài hoặc cập nhật một game Steamworks x64 tiêu chuẩn rồi quét lại.",
+                        "Capcom Arcade Stadium needs a compatible x64 Steam API from the local Steam library, but no suitable provider was found. Install or update a standard x64 Steamworks game, then scan again."));
                 throw new InvalidOperationException(M(english,
                     "Không tìm thấy Steam API dạng file rời hoặc được nhúng trong JAR/ZIP/CAB.",
                     "No loose Steam API DLL or Steam API embedded in a JAR/ZIP/CAB archive was found."));
@@ -95,6 +104,28 @@ internal static class SteamGameDetector
         if (string.IsNullOrEmpty(game.InterfaceVersion))
             game.InterfaceVersion = "AUTO";
         return game;
+    }
+
+    private static string FindCompatibilitySteamApi(string selected, string appId)
+    {
+        if (!string.Equals(appId, "1515950", StringComparison.Ordinal))
+            return null;
+
+        foreach (string library in FindSteamLibraries(selected))
+        {
+            string common = Path.Combine(library, "steamapps", "common");
+            foreach (string relativePath in new[]
+            {
+                @"wallpaper_engine\bin\steam_api64.dll",
+                @"wallpaper_engine\distribution\bin\steam_api64.dll"
+            })
+            {
+                string candidate = Path.Combine(common, relativePath);
+                if (File.Exists(candidate) && ReadMachine(candidate) == 0x8664)
+                    return candidate;
+            }
+        }
+        return null;
     }
 
     private static ArchivedSteamApi FindArchivedSteamApi(string gameRoot)

@@ -5,12 +5,14 @@ A lightweight bilingual Windows utility for detecting Steam games, reading their
 ## Features
 
 - English interface by default, with Vietnamese available in the app.
+- Clear two-column dashboard with a dedicated game-information sidebar, achievement workspace and activity log.
 - Detects the game name, Steam AppID, installation directory and Steam API architecture.
 - Reads achievement names, descriptions and locked/unlocked status before making changes.
 - Select individual achievements, all achievements or only locked achievements.
 - Nothing is selected or claimed automatically.
 - Supports x86 and x64 Steamworks games through embedded workers.
 - Can detect Steam API libraries stored in common game wrappers, JAR/ZIP archives and supported embedded CAB archives.
+- Supports Capcom Arcade Stadium through a compatible x64 Steam API provider already installed in the local Steam library.
 - Does not edit or delete game save files.
 
 ## Download
@@ -19,10 +21,10 @@ Download `UmiAchievementClaimer.exe` from the repository and run it on Windows.
 
 | Item | Value |
 |---|---|
-| Version | `1.4.0` |
+| Version | `1.5.0` |
 | File | `UmiAchievementClaimer.exe` |
-| Size | `220,160 bytes` |
-| SHA-256 | `E784AA251DB529C4CE06722E991A6C2821A1820E1CBF63700441CB19AA8AE3A8` |
+| Size | `223,232 bytes` |
+| SHA-256 | `165730ED5D42C0A36E8C60C59E24B33173D803B69D8B5239C596D421F48B77D7` |
 
 Verify the downloaded file in PowerShell:
 

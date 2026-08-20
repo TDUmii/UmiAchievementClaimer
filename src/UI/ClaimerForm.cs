@@ -23,6 +23,7 @@ internal sealed class ClaimerForm : Form
     private readonly Label titleLabel = new Label();
     private readonly Label subtitleLabel = new Label();
     private readonly Label gameFolderTitleLabel = new Label();
+    private readonly Label gameFolderHintLabel = new Label();
     private readonly Label detectionTitleLabel = new Label();
     private readonly Label safeModeLabel = new Label();
     private readonly TextBox pathBox = new TextBox();
@@ -45,6 +46,7 @@ internal sealed class ClaimerForm : Form
     private readonly Button claimButton = new Button();
     private readonly ProgressBar progress = new ProgressBar();
     private readonly ComboBox languageBox = new ComboBox();
+    private readonly ToolTip informationToolTip = new ToolTip();
     private DetectedGame detectedGame;
     private Process workerProcess;
     private string extractedWorker;
@@ -58,8 +60,8 @@ internal sealed class ClaimerForm : Form
     {
         Text = "Umi Achievement Claimer";
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(1120, 840);
-        MinimumSize = new Size(920, 800);
+        ClientSize = new Size(1180, 820);
+        MinimumSize = new Size(960, 720);
         Font = UiTheme.Font(9F);
         BackColor = UiTheme.Canvas;
         ForeColor = UiTheme.Text;
@@ -86,24 +88,24 @@ internal sealed class ClaimerForm : Form
     private void BuildHeader()
     {
         headerPanel.Dock = DockStyle.Top;
-        headerPanel.Height = 88;
+        headerPanel.Height = 92;
         headerPanel.BackColor = UiTheme.Surface;
         headerPanel.Padding = new Padding(24, 12, 24, 10);
 
-        brandLogo.Location = new Point(24, 12);
-        brandLogo.Size = new Size(62, 62);
+        brandLogo.Location = new Point(24, 14);
+        brandLogo.Size = new Size(60, 60);
         brandLogo.SizeMode = PictureBoxSizeMode.Zoom;
         brandLogo.Image = LoadBrandLogo();
 
-        titleLabel.Font = UiTheme.Font(19F, FontStyle.Bold);
+        titleLabel.Font = UiTheme.Font(18F, FontStyle.Bold);
         titleLabel.ForeColor = UiTheme.Navy;
         titleLabel.AutoSize = true;
-        titleLabel.Location = new Point(98, 14);
+        titleLabel.Location = new Point(98, 16);
 
         subtitleLabel.Font = UiTheme.Font(9.25F);
         subtitleLabel.ForeColor = UiTheme.MutedText;
         subtitleLabel.AutoSize = true;
-        subtitleLabel.Location = new Point(101, 51);
+        subtitleLabel.Location = new Point(100, 52);
 
         languageBox.DropDownStyle = ComboBoxStyle.DropDownList;
         languageBox.Items.AddRange(new object[] { "English", "Tiếng Việt" });
@@ -114,8 +116,8 @@ internal sealed class ClaimerForm : Form
         Panel languageHost = new Panel
         {
             Dock = DockStyle.Right,
-            Width = 174,
-            Padding = new Padding(0, 16, 0, 14),
+            Width = 182,
+            Padding = new Padding(0, 17, 0, 15),
             BackColor = UiTheme.Surface
         };
         languageHost.Controls.Add(languageBox);
@@ -125,6 +127,8 @@ internal sealed class ClaimerForm : Form
         {
             using (Pen pen = new Pen(UiTheme.Border))
                 e.Graphics.DrawLine(pen, 0, headerPanel.Height - 1, headerPanel.Width, headerPanel.Height - 1);
+            using (SolidBrush brush = new SolidBrush(UiTheme.Orange))
+                e.Graphics.FillRectangle(brush, 0, headerPanel.Height - 3, 84, 3);
         };
     }
 
@@ -132,14 +136,14 @@ internal sealed class ClaimerForm : Form
     {
         pageLayout.Dock = DockStyle.Fill;
         pageLayout.BackColor = UiTheme.Canvas;
-        pageLayout.Padding = new Padding(24, 18, 24, 18);
-        pageLayout.ColumnCount = 1;
-        pageLayout.RowCount = 5;
+        pageLayout.Padding = new Padding(22, 18, 22, 16);
+        pageLayout.ColumnCount = 2;
+        pageLayout.RowCount = 4;
+        pageLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320F));
         pageLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
         pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 112F));
         pageLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 166F));
+        pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 158F));
         pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 5F));
 
         BuildGameCard();
@@ -152,21 +156,30 @@ internal sealed class ClaimerForm : Form
         progress.Style = ProgressBarStyle.Blocks;
 
         pageLayout.Controls.Add(gameCard, 0, 0);
+        pageLayout.SetColumnSpan(gameCard, 2);
         pageLayout.Controls.Add(informationCard, 0, 1);
-        pageLayout.Controls.Add(achievementCard, 0, 2);
-        pageLayout.Controls.Add(logCard, 0, 3);
-        pageLayout.Controls.Add(progress, 0, 4);
+        pageLayout.Controls.Add(achievementCard, 1, 1);
+        pageLayout.Controls.Add(logCard, 0, 2);
+        pageLayout.SetColumnSpan(logCard, 2);
+        pageLayout.Controls.Add(progress, 0, 3);
+        pageLayout.SetColumnSpan(progress, 2);
     }
 
     private void BuildGameCard()
     {
         gameCard.Dock = DockStyle.Fill;
-        gameCard.Padding = new Padding(18, 12, 18, 14);
+        gameCard.Padding = new Padding(20, 13, 20, 15);
+        gameCard.AccentColor = UiTheme.Blue;
 
         gameFolderTitleLabel.Font = UiTheme.Font(10F, FontStyle.Bold);
         gameFolderTitleLabel.ForeColor = UiTheme.Navy;
         gameFolderTitleLabel.Dock = DockStyle.Top;
-        gameFolderTitleLabel.Height = 25;
+        gameFolderTitleLabel.Height = 23;
+
+        gameFolderHintLabel.Font = UiTheme.Font(8.5F);
+        gameFolderHintLabel.ForeColor = UiTheme.MutedText;
+        gameFolderHintLabel.Dock = DockStyle.Top;
+        gameFolderHintLabel.Height = 22;
 
         TableLayoutPanel pathLayout = new TableLayoutPanel
         {
@@ -174,7 +187,7 @@ internal sealed class ClaimerForm : Form
             ColumnCount = 3,
             RowCount = 1,
             Margin = new Padding(0),
-            Padding = new Padding(0, 5, 0, 0)
+            Padding = new Padding(0, 3, 0, 0)
         };
         pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 142F));
@@ -182,7 +195,7 @@ internal sealed class ClaimerForm : Form
 
         pathBox.Dock = DockStyle.Fill;
         pathBox.Margin = new Padding(0, 0, 10, 0);
-        pathBox.Font = UiTheme.Font(9.5F);
+        pathBox.Font = UiTheme.Font(10F);
         pathBox.BorderStyle = BorderStyle.FixedSingle;
 
         ConfigureButton(browseButton, UmiButtonStyle.Secondary);
@@ -199,36 +212,37 @@ internal sealed class ClaimerForm : Form
         pathLayout.Controls.Add(browseButton, 1, 0);
         pathLayout.Controls.Add(scanButton, 2, 0);
         gameCard.Controls.Add(pathLayout);
+        gameCard.Controls.Add(gameFolderHintLabel);
         gameCard.Controls.Add(gameFolderTitleLabel);
     }
 
     private void BuildInformationCard()
     {
         informationCard.Dock = DockStyle.Fill;
-        informationCard.Padding = new Padding(18, 12, 18, 12);
+        informationCard.Padding = new Padding(18, 14, 18, 14);
+        informationCard.Margin = new Padding(0, 0, 12, 12);
+        informationCard.AccentColor = UiTheme.Navy;
 
         detectionTitleLabel.Font = UiTheme.Font(10F, FontStyle.Bold);
         detectionTitleLabel.ForeColor = UiTheme.Navy;
         detectionTitleLabel.Dock = DockStyle.Top;
-        detectionTitleLabel.Height = 26;
+        detectionTitleLabel.Height = 32;
 
         TableLayoutPanel values = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 5,
-            RowCount = 1,
+            ColumnCount = 1,
+            RowCount = 5,
             Margin = new Padding(0)
         };
-        values.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 27F));
-        values.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-        values.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
-        values.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 17F));
-        values.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 31F));
+        values.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        for (int index = 0; index < 5; index++)
+            values.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
         values.Controls.Add(CreateInformationCell(0, gameValue), 0, 0);
-        values.Controls.Add(CreateInformationCell(1, appIdValue), 1, 0);
-        values.Controls.Add(CreateInformationCell(3, architectureValue), 2, 0);
-        values.Controls.Add(CreateInformationCell(4, interfaceValue), 3, 0);
-        values.Controls.Add(CreateInformationCell(2, dllValue), 4, 0);
+        values.Controls.Add(CreateInformationCell(1, appIdValue), 0, 1);
+        values.Controls.Add(CreateInformationCell(3, architectureValue), 0, 2);
+        values.Controls.Add(CreateInformationCell(4, interfaceValue), 0, 3);
+        values.Controls.Add(CreateInformationCell(2, dllValue), 0, 4);
 
         informationCard.Controls.Add(values);
         informationCard.Controls.Add(detectionTitleLabel);
@@ -237,32 +251,42 @@ internal sealed class ClaimerForm : Form
     private void BuildAchievementCard()
     {
         achievementCard.Dock = DockStyle.Fill;
-        achievementCard.Padding = new Padding(18, 12, 18, 14);
+        achievementCard.Padding = new Padding(18, 14, 18, 14);
+        achievementCard.Margin = new Padding(0, 0, 0, 12);
+        achievementCard.AccentColor = UiTheme.Orange;
 
-        Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = UiTheme.Surface };
+        Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 78, BackColor = UiTheme.Surface };
         achievementTitleLabel.Font = UiTheme.Font(10F, FontStyle.Bold);
         achievementTitleLabel.ForeColor = UiTheme.Navy;
-        achievementTitleLabel.Dock = DockStyle.Left;
-        achievementTitleLabel.Width = 230;
+        achievementTitleLabel.Dock = DockStyle.Top;
+        achievementTitleLabel.Height = 32;
         achievementTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
 
-        FlowLayoutPanel actions = new FlowLayoutPanel
+        TableLayoutPanel actions = new TableLayoutPanel
         {
-            Dock = DockStyle.Right,
-            Width = 580,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false,
+            Dock = DockStyle.Fill,
+            ColumnCount = 5,
+            RowCount = 1,
             Padding = new Padding(0),
             Margin = new Padding(0)
         };
+        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104F));
+        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118F));
+        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 88F));
+        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 208F));
         ConfigureButton(selectAllButton, UmiButtonStyle.Secondary);
         ConfigureButton(selectLockedButton, UmiButtonStyle.Secondary);
         ConfigureButton(clearSelectionButton, UmiButtonStyle.Ghost);
         ConfigureButton(claimButton, UmiButtonStyle.Accent);
-        selectAllButton.Size = new Size(105, 32);
-        selectLockedButton.Size = new Size(118, 32);
-        clearSelectionButton.Size = new Size(92, 32);
-        claimButton.Size = new Size(230, 32);
+        selectAllButton.Dock = DockStyle.Fill;
+        selectLockedButton.Dock = DockStyle.Fill;
+        clearSelectionButton.Dock = DockStyle.Fill;
+        claimButton.Dock = DockStyle.Fill;
+        selectAllButton.Margin = new Padding(0, 0, 6, 0);
+        selectLockedButton.Margin = new Padding(0, 0, 6, 0);
+        clearSelectionButton.Margin = new Padding(0, 0, 6, 0);
+        claimButton.Margin = new Padding(6, 0, 0, 0);
         selectAllButton.Enabled = false;
         selectLockedButton.Enabled = false;
         clearSelectionButton.Enabled = false;
@@ -273,37 +297,40 @@ internal sealed class ClaimerForm : Form
         claimButton.Click += ClaimAchievements;
         claimButton.EnabledChanged += delegate { RefreshClaimButtonStyle(); };
         RefreshClaimButtonStyle();
-        actions.Controls.AddRange(new Control[] { selectAllButton, selectLockedButton, clearSelectionButton, claimButton });
+        actions.Controls.Add(selectAllButton, 0, 0);
+        actions.Controls.Add(selectLockedButton, 1, 0);
+        actions.Controls.Add(clearSelectionButton, 2, 0);
+        actions.Controls.Add(claimButton, 4, 0);
         toolbar.Controls.Add(actions);
         toolbar.Controls.Add(achievementTitleLabel);
 
         safeModeLabel.Dock = DockStyle.Top;
-        safeModeLabel.Height = 30;
+        safeModeLabel.Height = 34;
         safeModeLabel.Font = UiTheme.Font(8.75F);
         safeModeLabel.ForeColor = UiTheme.Success;
-        safeModeLabel.BackColor = Color.FromArgb(237, 249, 244);
-        safeModeLabel.Padding = new Padding(9, 7, 8, 0);
+        safeModeLabel.BackColor = UiTheme.SuccessSurface;
+        safeModeLabel.Padding = new Padding(10, 8, 8, 0);
 
         achievementDescriptionLabel.Dock = DockStyle.Bottom;
-        achievementDescriptionLabel.Height = 44;
-        achievementDescriptionLabel.Padding = new Padding(10, 7, 10, 5);
+        achievementDescriptionLabel.Height = 48;
+        achievementDescriptionLabel.Padding = new Padding(12, 8, 12, 5);
         achievementDescriptionLabel.ForeColor = UiTheme.MutedText;
         achievementDescriptionLabel.BackColor = UiTheme.SurfaceMuted;
         achievementDescriptionLabel.AutoEllipsis = true;
 
         achievementList.Dock = DockStyle.Fill;
         achievementList.Margin = new Padding(0, 8, 0, 8);
-        achievementList.BorderStyle = BorderStyle.FixedSingle;
+        achievementList.BorderStyle = BorderStyle.None;
         achievementList.BackColor = UiTheme.Surface;
         achievementList.ForeColor = UiTheme.Text;
-        achievementList.Font = UiTheme.Font(9.25F);
+        achievementList.Font = UiTheme.Font(9.5F);
         achievementList.CheckOnClick = true;
         achievementList.HorizontalScrollbar = true;
         achievementList.IntegralHeight = false;
         achievementList.ItemCheck += delegate { BeginInvoke(new Action(UpdateClaimButtonState)); };
         achievementList.SelectedIndexChanged += delegate { UpdateAchievementDescription(); };
 
-        Panel listHost = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 8), BackColor = UiTheme.Surface };
+        Panel listHost = new Panel { Dock = DockStyle.Fill, Padding = new Padding(1, 9, 1, 9), BackColor = UiTheme.Border };
         listHost.Controls.Add(achievementList);
         achievementCard.Controls.Add(listHost);
         achievementCard.Controls.Add(achievementDescriptionLabel);
@@ -314,18 +341,19 @@ internal sealed class ClaimerForm : Form
     private void BuildLogCard()
     {
         logCard.Dock = DockStyle.Fill;
-        logCard.Padding = new Padding(18, 10, 18, 14);
+        logCard.Padding = new Padding(18, 12, 18, 14);
+        logCard.AccentColor = UiTheme.Success;
         logTitleLabel.Font = UiTheme.Font(10F, FontStyle.Bold);
         logTitleLabel.ForeColor = UiTheme.Navy;
         logTitleLabel.Dock = DockStyle.Top;
-        logTitleLabel.Height = 25;
+        logTitleLabel.Height = 27;
 
         logBox.Dock = DockStyle.Fill;
         logBox.ReadOnly = true;
         logBox.BorderStyle = BorderStyle.None;
         logBox.BackColor = UiTheme.LogBackground;
         logBox.ForeColor = UiTheme.LogText;
-        logBox.Font = new Font("Consolas", 9F);
+        logBox.Font = new Font("Consolas", 9.25F);
         logBox.DetectUrls = false;
 
         logCard.Controls.Add(logBox);
@@ -352,11 +380,11 @@ internal sealed class ClaimerForm : Form
 
     private Control CreateInformationCell(int captionIndex, Label value)
     {
-        Panel cell = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.Surface, Padding = new Padding(0, 2, 12, 0) };
+        Panel cell = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.SurfaceMuted, Padding = new Padding(11, 7, 11, 5), Margin = new Padding(0, 0, 0, 6) };
         Label caption = new Label
         {
             Dock = DockStyle.Top,
-            Height = 22,
+            Height = 18,
             Font = UiTheme.Font(8F, FontStyle.Bold),
             ForeColor = UiTheme.MutedText
         };
@@ -368,6 +396,7 @@ internal sealed class ClaimerForm : Form
         value.Text = "—";
         cell.Controls.Add(value);
         cell.Controls.Add(caption);
+        informationToolTip.SetToolTip(value, value.Text);
         return cell;
     }
 
@@ -384,6 +413,7 @@ internal sealed class ClaimerForm : Form
             "Quét an toàn, xem trạng thái và chỉ claim những achievement bạn chọn.",
             "Scan safely, review status, and claim only the achievements you select.");
         gameFolderTitleLabel.Text = L("01  THƯ MỤC GAME STEAM", "01  STEAM GAME FOLDER");
+        gameFolderHintLabel.Text = L("Chọn đúng thư mục riêng của game; AppID sẽ được nhận diện tự động.", "Choose the game's own folder; its AppID is detected automatically.");
         browseButton.Text = L("Chọn thư mục", "Browse folder");
         scanButton.Text = L("Quét", "Scan");
         detectionTitleLabel.Text = L("02  THÔNG TIN NHẬN DIỆN", "02  DETECTED GAME");
@@ -440,6 +470,8 @@ internal sealed class ClaimerForm : Form
             detectedGame = SteamGameDetector.Detect(pathBox.Text, English);
             SetInformation(detectedGame);
             AppendLog(L("Nhận diện thành công: ", "Detected successfully: ") + detectedGame.Name + " (AppID " + detectedGame.AppId + ", " + detectedGame.Architecture + ")");
+            if (detectedGame.UsesCompatibilityProvider)
+                AppendLog(L("Đang dùng Steam API compatibility provider: ", "Using Steam API compatibility provider: ") + detectedGame.SteamApiPath);
             LoadAchievements();
         }
         catch (Exception error)
@@ -524,9 +556,15 @@ internal sealed class ClaimerForm : Form
         appIdValue.Text = game == null ? "—" : game.AppId;
         dllValue.Text = game == null ? "—" : game.SteamApiPath
             + (string.IsNullOrEmpty(game.SteamApiArchiveEntry) ? string.Empty : " :: " + game.SteamApiArchiveEntry
-                + (string.IsNullOrEmpty(game.SteamApiArchiveFormat) ? string.Empty : " [" + game.SteamApiArchiveFormat.ToUpperInvariant() + "]"));
+                + (string.IsNullOrEmpty(game.SteamApiArchiveFormat) ? string.Empty : " [" + game.SteamApiArchiveFormat.ToUpperInvariant() + "]"))
+            + (game.UsesCompatibilityProvider ? " [COMPATIBILITY PROVIDER]" : string.Empty);
         architectureValue.Text = game == null ? "—" : game.Architecture;
         interfaceValue.Text = game == null ? "—" : game.InterfaceVersion;
+        informationToolTip.SetToolTip(gameValue, gameValue.Text);
+        informationToolTip.SetToolTip(appIdValue, appIdValue.Text);
+        informationToolTip.SetToolTip(architectureValue, architectureValue.Text);
+        informationToolTip.SetToolTip(interfaceValue, interfaceValue.Text);
+        informationToolTip.SetToolTip(dllValue, dllValue.Text);
     }
 
     private void SetAchievementControlsEnabled(bool enabled)

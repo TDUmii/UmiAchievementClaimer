@@ -22,6 +22,8 @@ Worker (separate executable; communicates with UI through UTF-8 stdout)
 
 The UI never calls Steam native functions itself. This prevents a 32-bit game DLL from being loaded into the 64-bit WinForms process and keeps native crashes isolated to the temporary worker process.
 
+For protected games that do not expose their own Steam API on disk, detection may select a tested compatible x64 Steam API provider already present in another local Steam installation. The selected AppID and game root remain those of the target game; the provider file is read in place and neither game installation is modified.
+
 ## Safe list/claim boundary
 
 The worker has explicit modes:
@@ -31,3 +33,5 @@ The worker has explicit modes:
 - `probe`: validates interface/count only.
 
 The application starts with zero checked achievements. Selection changes are local UI state until the user presses the claim button and confirms the exact selected count.
+
+After `StoreStats`, selected mode reloads current stats and verifies every requested achievement before reporting success.

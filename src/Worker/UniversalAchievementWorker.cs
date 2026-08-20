@@ -375,11 +375,14 @@ internal static class UniversalAchievementWorker
                 throw new InvalidOperationException(Msg("Steam từ chối tải User Stats.", "Steam rejected the User Stats request."));
 
             Console.WriteLine(Msg("Đang tải schema achievement từ Steam...", "Loading the achievement schema from Steam..."));
-            PumpCallbacks(runCallbacks, 5000);
-
-            uint count = getNumAchievements != null
-                ? getNumAchievements(userStats)
-                : getCountMethod(userStats);
+            uint count = 0;
+            for (int attempt = 0; attempt < 15 && count == 0; attempt++)
+            {
+                PumpCallbacks(runCallbacks, 1000);
+                count = getNumAchievements != null
+                    ? getNumAchievements(userStats)
+                    : getCountMethod(userStats);
+            }
             if (count == 0 || count > 10000)
                 throw new InvalidOperationException(Msg("Số achievement không hợp lệ: ", "Invalid achievement count: ") + count);
 
@@ -428,6 +431,7 @@ internal static class UniversalAchievementWorker
             }
 
             int accepted = 0;
+            List<string> targetAchievementIds = new List<string>();
             int targetCount = selectedOnly ? selectedAchievements.Count : (int)count;
             for (uint index = 0; index < count; index++)
             {
@@ -443,6 +447,8 @@ internal static class UniversalAchievementWorker
 
                 if (selectedOnly && !selectedAchievements.Contains(achievementId))
                     continue;
+
+                targetAchievementIds.Add(achievementId);
 
                 bool ok = setAchievement != null
                     ? setAchievement(userStats, achievementId)
@@ -461,8 +467,29 @@ internal static class UniversalAchievementWorker
             Console.WriteLine("SELECTED_COUNT=" + targetCount);
             Console.WriteLine(Msg("Đã gửi ", "Submitted ") + accepted + "/" + targetCount + Msg(". Đang chờ Steam lưu...", ". Waiting for Steam to persist the changes..."));
             PumpCallbacks(runCallbacks, 7000);
-            Console.WriteLine("RESULT=" + (accepted == targetCount ? "SUCCESS" : "PARTIAL"));
-            return accepted == targetCount ? 0 : 2;
+
+            bool refreshed = requestStats != null
+                ? requestStats(userStats)
+                : (legacyVTable ? requestMethod(userStats) : true);
+            if (refreshed)
+                PumpCallbacks(runCallbacks, 3000);
+
+            int verified = 0;
+            foreach (string achievementId in targetAchievementIds)
+            {
+                bool achieved;
+                bool stateOk = getAchievement != null
+                    ? getAchievement(userStats, achievementId, out achieved)
+                    : getAchievementMethod(userStats, achievementId, out achieved);
+                if (stateOk && achieved)
+                    verified++;
+                else
+                    Console.WriteLine("[UNVERIFIED] " + achievementId);
+            }
+            Console.WriteLine("VERIFIED_COUNT=" + verified);
+            bool success = accepted == targetCount && verified == targetCount;
+            Console.WriteLine("RESULT=" + (success ? "SUCCESS" : "PARTIAL"));
+            return success ? 0 : 2;
         }
         catch (Exception error)
         {
