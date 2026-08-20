@@ -2,8 +2,6 @@
 
 A lightweight bilingual Windows utility for detecting Steam games, reading their achievement status and claiming only the achievements selected by the user.
 
-Ứng dụng Windows song ngữ giúp nhận diện game Steam, đọc trạng thái achievement và chỉ claim những achievement do người dùng lựa chọn.
-
 ## Features
 
 - English interface by default, with Vietnamese available in the app.
