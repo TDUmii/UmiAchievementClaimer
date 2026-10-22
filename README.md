@@ -8,19 +8,19 @@ Native client-area render with real public [Portal 2 artwork](https://store.stea
 
 ## Features
 
-- English interface by default, with a compact `EN` / `VI` toggle that switches language without opening a menu.
+- English interface by default, with a dedicated Settings panel for the `EN` / `VI` language toggle.
 - Steam Midnight dashboard with Bahnschrift display typography, navy surfaces, lavender actions, a compact game sidebar and a fixed Claim footer.
-- A `THEME` control with Steam Midnight, Carbon and Arcade presets plus a custom accent picker. The selected theme is saved for the next launch.
+- A dedicated Settings panel with Steam Midnight, Carbon and Arcade presets plus a custom accent picker. The selected theme is saved for the next launch.
 - Black native window caption and border on Windows 11, with a compatible dark-frame fallback on Windows 10.
 - Game cover artwork and achievement icons from Steam, loaded in the background. Icons are fetched only for visible results; unavailable artwork keeps the built-in fallback.
-- The game-folder field keeps the path, Browse and Scan controls on one aligned row and uses a monospace path treatment for long directories.
+- The game-folder field keeps the path, Browse and Scan controls on one aligned row, centers the single-line path text vertically and uses a monospace treatment for long directories.
 - Search achievements by name, description or API ID; filter All / Locked / Unlocked.
-- Two-line achievement rows with individual checkboxes, status and full-text tooltips.
+- A compact, scrollable file-manager style achievement list with two-line rows, individual checkboxes, status and full-text tooltips.
 - Total, unlocked and locked counts, plus the number selected (including selections hidden by filters).
 - Collapsible activity log with Copy log, and expandable technical details.
 - Detects the game name, Steam AppID, installation directory and Steam API architecture.
 - Reads achievement names, descriptions and locked/unlocked status before making changes.
-- Select individual achievements, all visible results or the locked achievements in visible results. Clear all also clears hidden selections.
+- Select individual achievements, then use the compact `SELECT` menu for visible, locked-visible or clear-all actions. Clear all also clears hidden selections.
 - Nothing is selected or claimed automatically.
 - A dedicated confirmation shows the game, AppID and exact selected count. Cancel is the default action.
 - Game switching, language and selection controls are locked while the worker is running.
@@ -35,10 +35,10 @@ Download `UmiAchievementClaimer.exe` from [GitHub Releases](https://github.com/T
 
 | Item | Value |
 |---|---|
-| Version | `1.7.0` |
+| Version | `1.8.0` |
 | File | `UmiAchievementClaimer.exe` |
-| Size | `274,944 bytes` |
-| SHA-256 | `D4386AEC6FD62A3D890D4B691E1ADCB2ABCE5C8513BCC3AC69AA25494A69E2CE` |
+| Size | `279,040 bytes` |
+| SHA-256 | `296C99BAE1760C41D464FD42B287BF7ECD4CD2BAFA410C4D6BD8D27A3B355E81` |
 
 Verify the downloaded file in PowerShell:
 
@@ -56,11 +56,11 @@ Get-FileHash -Algorithm SHA256 .\UmiAchievementClaimer.exe
 
 1. Close the target game and keep Steam running.
 2. Open `UmiAchievementClaimer.exe` and select the game's installation folder.
-3. Review the detected game and achievement list. Search or use **All / Locked / Unlocked** to narrow the results. Use `EN` / `VI` in the header to switch language.
-4. Tick individual achievements, use **Select visible**, or select the locked achievements in the visible results. Selections survive searches and filters; the footer reports how many selected items are hidden.
+3. Review the detected game and achievement list. Search or use **All / Locked / Unlocked** to narrow the results. Open **Settings** to switch `EN` / `VI`.
+4. Tick individual achievements, then use **SELECT** for visible, locked-visible or clear-all actions. Selections survive searches and filters; the footer reports how many selected items are hidden.
 5. Choose **Claim selected**, check the game, AppID and count, then explicitly confirm. **Clear all** clears every selection, including hidden ones.
 6. Expand **Activity log** for diagnostics and use **Copy log** when needed. **View technical details** shows the detected Steam API and stats interface.
-7. Use **THEME** in the header to choose a visual preset or a custom accent color. The choice is stored in `%APPDATA%\UmiAchievementClaimer\theme.cfg`.
+7. Open **Settings** to choose a visual preset or a custom accent color. The choice is stored in `%APPDATA%\UmiAchievementClaimer\theme.cfg`.
 
 Artwork uses public Steam metadata and Steam CDN images. It does not need an API key, and does not upload your installation path or Steam account details. An Internet connection is needed for artwork; missing images do not block scanning or selection.
 
@@ -83,7 +83,7 @@ Run the native UI regression checks after building:
 
 The checks use synthetic game and achievement data. They do not invoke the Steam worker or change a Steam profile. Native render captures are written to the ignored `.impeccable/review/` directory. Real Steam scan/claim compatibility must be validated separately for the target game.
 
-The UI regression suite covers the compact language toggle, theme preset/custom-accent path, long folder paths, minimum-size geometry, the theme picker dialog, hidden selections and native frame requests. The latest run reports `55 PASS, 0 FAIL`.
+The UI regression suite covers the Settings panel, language toggle, theme preset/custom-accent path, centered long folder paths, compact scrolling rows, minimum-size geometry, hidden selections and native frame requests. The latest run reports `57 PASS, 0 FAIL`.
 
 An optional live artwork check downloads a public Portal 2 cover and both achievement-icon states, and saves fixtures for the UI render checks:
 

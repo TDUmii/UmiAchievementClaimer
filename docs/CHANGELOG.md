@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.8.0 - 2026-10-22
+
+### Focused settings and achievement list
+
+- Moved language and appearance controls out of the main workflow into a dedicated Settings dialog with live VI/EN switching, Steam Midnight/Carbon/Arcade presets and a custom accent picker.
+- Reduced the header to one `SETTINGS` action and removed the extra theme/language controls from the achievement workspace.
+- Replaced the three visible bulk-selection buttons with one compact `SELECT` menu for visible, locked-visible and clear-all actions.
+- Converted the folder path input to a vertically centered single-line field and tightened the card, button, footer and achievement-row geometry.
+- Kept the achievement collection as a native vertically scrollable explorer-style list with compact two-line rows and state-specific artwork.
+
+### Validation
+
+- Built the x86 worker, x64 worker and x64 Windows EXE with the Windows .NET Framework compilers.
+- Native UI regression: `57 PASS, 0 FAIL`, including Settings, language toggling, theme switching, centered path layout, compact scrolling rows, minimum-size layout and artwork fixtures.
+- Live artwork smoke check: `10 PASS, 0 FAIL`.
+- No Steam achievements were claimed as part of this UI release validation.
+
 ## 1.7.0 - 2026-10-22
 
 ### Game client polish

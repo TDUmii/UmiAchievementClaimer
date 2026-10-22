@@ -248,7 +248,7 @@ internal static class UiRegression
                 Type themeType = application.GetType("UmiAchievementClaimer.UiTheme");
                 themeType.GetMethod("ApplyPreset", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { "Carbon" });
                 Check((string)themeType.GetProperty("ActiveName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).GetValue(null, null) == "Carbon"
-                    && Control(form, "themeButton").Enabled, "theme preset changes while the client is idle");
+                    && Control(form, "settingsButton").Enabled, "theme preset changes while the client is idle");
                 themeType.GetMethod("ApplyCustomAccent", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { Color.FromArgb(255, 88, 190, 224) });
                 Check((string)themeType.GetProperty("ActiveName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).GetValue(null, null) == "Custom", "custom accent theme is accepted");
                 themeType.GetMethod("ApplyPreset", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { "Steam Midnight" });
@@ -309,7 +309,7 @@ internal static class UiRegression
                 Check(Field(form, "workerProcess") == null, "UI and serialization checks never start a worker");
 
                 Call(form, "SetBusy", true);
-                string[] busyControls = { "browseButton", "scanButton", "pathBox", "languageToggleButton", "themeButton", "searchBox", "achievementList", "selectAllButton", "selectLockedButton", "clearSelectionButton", "claimButton" };
+                string[] busyControls = { "browseButton", "scanButton", "pathBox", "languageToggleButton", "themeButton", "settingsButton", "searchBox", "achievementList", "selectAllButton", "selectLockedButton", "clearSelectionButton", "selectionMenuButton", "claimButton" };
                 Check(busyControls.All(name => !Control(form, name).Enabled) && filters.All(button => !button.Enabled), "busy state locks game, language, filters and selection");
                 Call(form, "SetBusy", false);
                 Check(busyControls.All(name => Control(form, name).Enabled) && filters.All(button => button.Enabled), "idle state restores appropriate controls");
@@ -356,12 +356,17 @@ internal static class UiRegression
                     Check(confirmation.DialogResult == DialogResult.Cancel, "default action cancels confirmation");
                 }
 
-                using (Form themeDialog = (Form)New("ThemePickerDialog"))
+                using (Form settingsDialog = (Form)New("SettingsDialog"))
                 {
-                    Prepare(themeDialog);
-                    CheckWindowTheme(themeDialog, "theme picker");
-                    Check(SingleRowsFit(themeDialog), "theme picker controls fit their layout row");
-                    Capture(themeDialog, "theme-dialog.png");
+                    Prepare(settingsDialog);
+                    CheckWindowTheme(settingsDialog, "settings dialog");
+                    Check(SingleRowsFit(settingsDialog), "settings controls fit their layout row");
+                    Button dialogLanguage = (Button)Field(settingsDialog, "languageButton");
+                    dialogLanguage.PerformClick();
+                    Check(!(bool)Property(settingsDialog, "English"), "settings language toggle switches to Vietnamese");
+                    dialogLanguage.PerformClick();
+                    Check((bool)Property(settingsDialog, "English"), "settings language toggle switches back to English");
+                    Capture(settingsDialog, "settings-dialog.png");
                 }
 
                 form.ClientSize = new Size(1220, 840);

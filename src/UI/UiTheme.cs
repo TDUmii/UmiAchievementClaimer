@@ -207,7 +207,7 @@ internal static class UiTheme
         button.FlatAppearance.BorderSize = style == UmiButtonStyle.Secondary ? 1 : 0;
         button.FlatAppearance.BorderColor = Border;
         bool primary = style == UmiButtonStyle.Primary || style == UmiButtonStyle.Accent;
-        button.Font = DisplayFont(8.7F, primary ? FontStyle.Bold : FontStyle.Regular);
+        button.Font = DisplayFont(9.1F, primary ? FontStyle.Bold : FontStyle.Regular);
         button.Cursor = Cursors.Hand;
         button.Margin = new Padding(0);
         button.Padding = new Padding(10, 0, 10, 0);

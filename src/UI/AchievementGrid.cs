@@ -296,12 +296,12 @@ internal sealed class AchievementGrid : DataGridView
     private void ApplyMetrics()
     {
         float scale = Font.Height / 15F;
-        RowTemplate.Height = Math.Max(64, Font.Height * 4 + 10);
+        RowTemplate.Height = Math.Max(54, Font.Height * 3 + 8);
         foreach (DataGridViewRow row in Rows)
             row.Height = RowTemplate.Height;
         Columns[0].Width = Math.Max(36, (int)(40 * scale));
-        Columns[1].Width = Math.Max(40, (int)(44 * scale));
-        Columns[3].Width = Math.Max(100, (int)(105 * scale));
+        Columns[1].Width = Math.Max(38, (int)(40 * scale));
+        Columns[3].Width = Math.Max(92, (int)(96 * scale));
     }
 
     protected override void OnCellPainting(DataGridViewCellPaintingEventArgs e)
@@ -375,7 +375,7 @@ internal sealed class AchievementGrid : DataGridView
         }
         else if (e.ColumnIndex == 2)
         {
-            int lineHeight = Font.Height + 4;
+            int lineHeight = Font.Height + 2;
             int top = bounds.Top + (bounds.Height - lineHeight * 2) / 2;
             Rectangle title = new Rectangle(bounds.Left + 4 * scale, top, Math.Max(0, bounds.Width - 12 * scale), lineHeight);
             Rectangle description = new Rectangle(title.Left, top + lineHeight, title.Width, lineHeight);
