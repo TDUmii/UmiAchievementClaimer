@@ -225,6 +225,7 @@ internal sealed class UmiButton : Button
 {
     private bool hovered;
     private bool pressed;
+    private bool keyboardFocus;
 
     public UmiButtonStyle StyleKind { get; internal set; }
 
@@ -235,8 +236,11 @@ internal sealed class UmiButton : Button
 
     protected override void OnMouseEnter(EventArgs e) { hovered = true; Invalidate(); base.OnMouseEnter(e); }
     protected override void OnMouseLeave(EventArgs e) { hovered = false; pressed = false; Invalidate(); base.OnMouseLeave(e); }
-    protected override void OnMouseDown(MouseEventArgs e) { pressed = true; Invalidate(); base.OnMouseDown(e); }
+    protected override void OnMouseDown(MouseEventArgs e) { keyboardFocus = false; pressed = true; Invalidate(); base.OnMouseDown(e); }
     protected override void OnMouseUp(MouseEventArgs e) { pressed = false; Invalidate(); base.OnMouseUp(e); }
+    protected override void OnKeyDown(KeyEventArgs e) { keyboardFocus = true; Invalidate(); base.OnKeyDown(e); }
+    protected override void OnGotFocus(EventArgs e) { keyboardFocus = (Control.MouseButtons == MouseButtons.None); Invalidate(); base.OnGotFocus(e); }
+    protected override void OnLostFocus(EventArgs e) { keyboardFocus = false; Invalidate(); base.OnLostFocus(e); }
     protected override void OnEnabledChanged(EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -249,8 +253,8 @@ internal sealed class UmiButton : Button
         using (SolidBrush brush = new SolidBrush(fill))
         {
             e.Graphics.FillPath(brush, path);
-            if (FlatAppearance.BorderSize > 0 || Focused)
-                using (Pen pen = new Pen(Focused ? UiTheme.Cyan : UiTheme.Border, Focused ? 2F : 1F))
+            if (FlatAppearance.BorderSize > 0 || (Focused && keyboardFocus))
+                using (Pen pen = new Pen(Focused && keyboardFocus ? UiTheme.Cyan : UiTheme.Border, Focused && keyboardFocus ? 2F : 1F))
                     e.Graphics.DrawPath(pen, path);
         }
         TextRenderer.DrawText(e.Graphics, Text, Font, new Rectangle(Padding.Left, 0, Width - Padding.Horizontal, Height),

@@ -53,8 +53,53 @@ internal sealed class SteamArtwork : IDisposable
             Uri allowedCover;
             artwork.CoverUrl = TryAllowedUri(coverUrl, true, out allowedCover) ? allowedCover.AbsoluteUri : null;
             artwork.Cover = await ReadImageAsync(artwork.CoverUrl, deadline.Token).ConfigureAwait(false);
+            if (artwork.Cover == null) artwork.Cover = TryLocalSteamCover(id);
         }
         return artwork;
+    }
+
+    private static Image TryLocalSteamCover(string id)
+    {
+        try
+        {
+            string[] roots = new string[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Steam"),
+                @"C:\Program Files (x86)\Steam",
+                @"D:\Steam"
+            };
+            foreach (string root in roots)
+            {
+                string folder = Path.Combine(root, "appcache", "librarycache");
+                foreach (string location in new[] { Path.Combine(folder, id), folder })
+                {
+                    if (!Directory.Exists(location)) continue;
+                    foreach (string pattern in new[] { "library_header.jpg", "library_capsule.jpg", "library_hero.jpg", id + "_header.jpg", id + "_library_600x900.jpg" })
+                    {
+                        string[] paths = Directory.GetFiles(location, pattern, location == folder ? SearchOption.TopDirectoryOnly : SearchOption.AllDirectories);
+                        foreach (string path in paths)
+                        {
+                            try
+                            {
+                                FileInfo info = new FileInfo(path);
+                                if (info.Length <= 0 || info.Length > MaximumBytes) continue;
+                                using (Image source = Image.FromFile(path))
+                                {
+                                    if (source.Width > 4096 || source.Height > 4096) continue;
+                                    return new Bitmap(source);
+                                }
+                            }
+                            catch (ArgumentException) { }
+                            catch (IOException) { }
+                            catch (OutOfMemoryException) { }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception) { }
+        return null;
     }
 
     // The caller owns the result and must dispose it when changing games or closing.

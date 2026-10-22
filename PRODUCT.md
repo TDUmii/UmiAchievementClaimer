@@ -14,7 +14,7 @@ Product commitments:
 - Keep the native Windows frame, system buttons and resize behavior. The chosen visual direction is Steam Midnight, with a black caption and border requested through DWM and a compatible dark-frame fallback.
 - Keep a game-client visual hierarchy: Bahnschrift display type for titles, stats and action labels, monospace treatment for the installation path, and the explanatory subtitle limited to the Achievements workspace.
 - Let the user choose Vietnamese/English and Steam Midnight, Carbon, Arcade or a custom accent from the dedicated Settings panel. Apply the selected choices live and persist the theme for the next launch.
-- Keep the main achievement workflow compact: a scrollable explorer-style list and one `SELECT` menu for visible, locked-visible and clear-all operations.
+- Keep the main achievement workflow compact: a full-width scrollable explorer-style list, combined search/filter toolbar and one Quick select menu for visible, locked-visible and clear-all operations.
 - Keep list navigation visually native to the Steam Midnight world: borderless in-theme path input and a dark themed scrollbar with keyboard, wheel and drag support.
 - Show real game cover artwork and state-specific achievement icons when available. Public Steam metadata and CDN downloads are optional; failed artwork leaves a fallback and does not block the core workflow. Artwork requests do not upload installation paths or Steam account details.
 - Keep diagnostics available through collapsible technical details and an activity log with Copy log.

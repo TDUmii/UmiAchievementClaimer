@@ -1,3 +1,10 @@
+## Unreleased - Steam Midnight v2 UI
+
+- Replaced the fixed game sidebar with a full-width horizontal game summary, including game metadata, unlock progress and folder controls.
+- Combined search, status filters and Quick select into a single achievement toolbar, with a search placeholder.
+- Preserved explicit checks, hidden selections and confirmation before claiming. Browse starts a scan; Rescan repeats it.
+- Added UI regression checks for the horizontal layout, readable metadata, search placeholder and completion stripe (67 PASS, 0 FAIL on the development machine).
+
 # Changelog
 
 ## 1.9.0 - 2026-10-22
@@ -77,3 +84,5 @@
 - Built the x86 worker, x64 worker and x64 Windows EXE with the Windows .NET Framework compilers.
 - Added native UI regression tests and rendered synthetic states at standard/minimum sizes, in both languages and with scaled controls.
 - No Steam achievements were claimed as part of this UI release validation. Game-specific Steam integration is not re-certified by the UI tests.
+
+- UI hotfix: readonly folder display, search placeholder alignment, mouse-vs-keyboard focus, segmented filter theme, larger activity log with themed scrollbar, and local Steam artwork cache fallback.

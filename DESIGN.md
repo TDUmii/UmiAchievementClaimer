@@ -113,17 +113,19 @@ The frontmatter is the normative palette, extracted from `src/UI/UiTheme.cs` and
 
 Use Bahnschrift for display type with a Segoe UI fallback, Segoe UI for supporting copy and Consolas for the activity log and installation path. Values are WinForms points; do not reinterpret them as CSS pixels. Windows supplies the native caption font.
 
-The main workspace heading is bold (18pt); the application title is bold (18pt), the game title is bold (16pt), and metric values are bold (20pt). Body copy and buttons use about 9pt, achievement rows use 9.5pt with bold names, metadata captions use 8pt, and secondary footer/detail copy uses 8.5pt. Selection summaries use bold 11pt. The confirmation dialog uses a bold 16pt heading and 10pt body.
+The main workspace heading is bold (18pt); the application title is bold (18pt), the game title is bold (17pt), and metric values are bold (14.5pt). Body copy and buttons use about 9pt, achievement rows use 9.5pt with bold names, metadata captions use 8pt, and secondary footer/detail copy uses 8.5pt. Selection summaries use bold 11pt. The confirmation dialog uses a bold 16pt heading and 10pt body.
 
 Truncate constrained single-line text with an ellipsis and retain full names, descriptions and API IDs in tooltips. Preserve room for both English and Vietnamese labels.
 
 ## Layout
 
-The default client is 1220 x 840; the minimum outer window is 1040 x 760. These are native desktop dimensions before DPI scaling, not web breakpoints. `AutoScaleMode.Dpi` and font-relative row metrics adapt the layout.
+The app has an 86px native header, a full-width horizontal game summary, a full-width achievement workspace and a collapsible full-width activity log. The default client is 1220 x 840 and the minimum window is 1040 x 760, with DPI scaling.
 
-An 86px header holds the logo, name, Steam status and one compact `SETTINGS` button. There is no header subtitle. The page uses 24px horizontal inset, 20px top inset and 18px bottom inset. A fixed 266px sidebar column includes a 16px right gap; the achievement workspace fills the remaining width. The summary card uses 16px padding; the workspace uses 16px horizontal padding.
+The horizontal game summary has three zones: official game artwork (180px), game identity and achievement progress (fluid), and installation-folder controls (328px). The main zone displays game name, detection status, Steam AppID, architecture, total/unlocked/locked metrics and a small progress stripe. The right zone contains a vertical path field, Browse folder and Rescan buttons, and a technical-details disclosure. Opening technical details replaces the right-hand controls without displacing artwork or game identity. Browsing starts a scan immediately; Rescan repeats it.
 
-The workspace orders heading, the single-row folder path controls, metrics, filters/search, a compact selection menu, scrollable results, selected-item detail and a fixed selection footer. The path is a flat, borderless, vertically centered single-line field. The footer stays outside the scrolling rows. The only explanatory subtitle is inside the Achievements heading. The log spans both columns and is collapsed initially. At smaller heights its expanded area is reduced. Expanding technical details replaces the cover area in the sidebar so both regions do not compete for height.
+The achievement workspace has a heading, one combined toolbar (search, All/Locked/Unlocked tabs, Quick select menu), the scrollable two-line achievement list, selection detail and fixed selection/Claim footer. The list takes the remaining vertical space. Search has an inline placeholder until focused or filled. Bulk menu actions preserve hidden selection semantics. Both cards span the full width with aligned edges. The log and worker progress indicator sit below.
+
+Keep the primary workflow immediately scannable: identify the current game, search/check exact achievements, then review/confirm Claim. Avoid unused sidebar space and tiny uppercase labels.
 
 ## Elevation & Depth
 
@@ -139,7 +141,7 @@ Cards have gently rounded corners (14px) and buttons use a tighter radius (8px).
 - **Settings controls:** the header exposes one small `SETTINGS` button. Its compact dialog uses aligned desktop-settings rows for the `EN` / `VI` toggle, Steam Midnight/Carbon/Arcade presets and a custom accent picker. The picker derives hover/pressed colors and contrast-aware primary text, then persists the choice in the user's application data folder.
 - **Game summary:** the cover, current game, detection status, AppID and architecture establish context. Technical details are an explicit disclosure. Read-only scan and confirmation guidance stays at the bottom.
 - **Achievement grid:** a native vertically scrollable explorer-style list pairs a checkbox, state-specific artwork, bold name, secondary description and text status. Compact rows are at least 54px and grow with the font. Overflow uses a custom themed scrollbar with keyboard, wheel and drag input. Focused rows and checked items are separate states; row focus alone does not select an achievement for claiming. Space toggles the current row's checkbox.
-- **Search and filters:** borderless text fields sit on the canvas tone. All / Locked / Unlocked filters change the visible collection while retaining every checked item. A single `SELECT` menu holds the visible, locked-visible and clear-all actions; the footer includes hidden selected items.
+- **Search and filters:** borderless text fields sit on the canvas tone. All / Locked / Unlocked filters change the visible collection while retaining every checked item. A single Quick select menu holds the visible, locked-visible and clear-all actions; the footer includes hidden selected items.
 - **Selection footer:** the count, confirmation hint and Claim button stay together. Zero selection leaves Claim disabled. Confirmation shows game, AppID, exact selected/total count and the consequence warning; Cancel receives initial focus and is the Enter/Escape default.
 - **Artwork:** use public Steam store/community metadata, keyed by achievement API ID or name, and official Steam CDN images. Load icons for visible rows and choose locked/unlocked imagery from the current state. Missing images retain the built-in fallback. Do not treat review fixtures as bundled product artwork.
 - **Diagnostics:** the activity log is a collapsible card with status and Copy log; its text uses the canvas and muted-text tokens. Technical details and log disclosure do not obscure the Claim footer.
@@ -150,7 +152,7 @@ Cards have gently rounded corners (14px) and buttons use a tighter radius (8px).
 - **Do** preserve text labels alongside status colors, clear focus treatment and English/Vietnamese fit.
 - **Do** review empty, long-name, hidden-selection, busy, expanded-log and minimum-window states when changing composition.
 - **Do** use `UiTheme.cs` as the runtime token source and update this document when the shared visual system changes.
-- **Do** keep display typography, compact status labels and the aligned folder control row consistent across themes.
+- **Do** keep display typography, compact status labels and the stacked folder input and action row consistent across themes.
 - **Don't** replace native caption buttons or resize behavior with fake chrome.
 - **Don't** auto-select achievements, lose hidden checks during filtering, or make confirmation the default Enter action.
 - **Don't** let artwork availability block review, selection or confirmation.

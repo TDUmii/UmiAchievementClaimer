@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -256,6 +256,14 @@ internal static class UiRegression
                 TextBox search = (TextBox)Field(form, "searchBox");
                 Button[] filters = (Button[])Field(form, "filterButtons");
                 Check(!Control(form, "claimButton").Enabled && Checked(grid).Length == 0, "initial Claim disabled and nothing selected");
+                Check(Control(form, "informationCard").Top < Control(form, "achievementCard").Top,
+                    "game summary sits above full-width achievement workspace");
+                Check(Control(form, "informationCard").Width == Control(form, "achievementCard").Width,
+                    "game summary and workspace are aligned at full width");
+                Check(Control(form, "searchPlaceholderLabel").Visible, "search placeholder initially visible");
+                Check(Control(form, "safeModeLabel").Height >= 14, "safety caption remains legible");
+                Check(Control(form, "appIdValue").Height >= 18 && Control(form, "architectureValue").Height >= 18,
+                    "Steam game metadata values have enough vertical space");
                 Check(Control(form, "emptyLabel").Visible && Visible(grid) == 0, "initial empty state");
                 Capture(form, "empty-en.png");
 
@@ -278,8 +286,12 @@ internal static class UiRegression
                 Call(form, "SetAchievementControlsEnabled", true); Call(form, "UpdateClaimButtonState");
                 Check(Checked(grid).Length == 0 && !Control(form, "claimButton").Enabled, "loaded rows are never automatically checked");
                 Check(Visible(grid) == 6, "all synthetic achievements are visible");
+                Check(Control(form, "achievementProgressFill").Width > 0 &&
+                    Control(form, "achievementProgressFill").Width < Control(form, "achievementProgressTrack").Width,
+                    "achievement progress stripe reflects partial unlock rate");
 
                 search.Text = "explorer"; Check(Visible(grid) == 1, "search by title ignores case");
+                Check(!Control(form, "searchPlaceholderLabel").Visible, "search placeholder hides when filled");
                 search.Text = "COLLECTOR_100"; Check(Visible(grid) == 1, "search by API ID");
                 search.Text = "tiếng Việt"; Check(Visible(grid) == 1, "search by Unicode description");
                 search.Text = "no-such-achievement";
