@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -11,39 +11,60 @@ using System.Windows.Forms;
 
 namespace UmiAchievementClaimer
 {
+// Steam Midnight. Operate: select a game, review, select explicitly, confirm.
+// Navy surfaces, lavender actions, cyan navigation and mint status. Keep Steam workers isolated.
+// First viewport: compact game summary, searchable achievement rows, fixed selection footer.
+// Finish: native render review and DESIGN.md describe the shipped surface.
 internal sealed class ClaimerForm : Form
 {
     private readonly Panel headerPanel = new Panel();
     private readonly TableLayoutPanel pageLayout = new TableLayoutPanel();
-    private readonly CardPanel gameCard = new CardPanel();
+    private readonly Panel gameCard = new Panel();
     private readonly CardPanel informationCard = new CardPanel();
     private readonly CardPanel achievementCard = new CardPanel();
     private readonly CardPanel logCard = new CardPanel();
     private readonly PictureBox brandLogo = new PictureBox();
     private readonly Label titleLabel = new Label();
     private readonly Label subtitleLabel = new Label();
+    private readonly Label steamStatusLabel = new Label();
     private readonly Label gameFolderTitleLabel = new Label();
-    private readonly Label gameFolderHintLabel = new Label();
     private readonly Label detectionTitleLabel = new Label();
+    private readonly Label detectionStatusLabel = new Label();
+    private readonly PictureBox gameCover = new PictureBox();
+    private readonly Label coverFallback = new Label();
     private readonly Label safeModeLabel = new Label();
     private readonly TextBox pathBox = new TextBox();
-    private readonly Button browseButton = new Button();
-    private readonly Button scanButton = new Button();
+    private readonly Button browseButton = new UmiButton();
+    private readonly Button scanButton = new UmiButton();
     private readonly Label[] captionLabels = new Label[5];
     private readonly Label gameValue = new Label();
     private readonly Label appIdValue = new Label();
     private readonly Label dllValue = new Label();
     private readonly Label architectureValue = new Label();
     private readonly Label interfaceValue = new Label();
-    private readonly RichTextBox logBox = new RichTextBox();
-    private readonly Label logTitleLabel = new Label();
+    private readonly TextBox logBox = new TextBox();
+    private readonly Button logToggleButton = new UmiButton();
+    private readonly Button copyLogButton = new UmiButton();
+    private readonly Label statusLabel = new Label();
     private readonly Label achievementTitleLabel = new Label();
+    private readonly Label achievementHintLabel = new Label();
     private readonly Label achievementDescriptionLabel = new Label();
-    private readonly CheckedListBox achievementList = new CheckedListBox();
-    private readonly Button selectAllButton = new Button();
-    private readonly Button selectLockedButton = new Button();
-    private readonly Button clearSelectionButton = new Button();
-    private readonly Button claimButton = new Button();
+    private readonly AchievementGrid achievementList = new AchievementGrid();
+    private readonly Button selectAllButton = new UmiButton();
+    private readonly Button selectLockedButton = new UmiButton();
+    private readonly Button clearSelectionButton = new UmiButton();
+    private readonly Button claimButton = new UmiButton();
+    private readonly Label selectedCountLabel = new Label();
+    private readonly Label confirmationHintLabel = new Label();
+    private readonly Label visibleCountLabel = new Label();
+    private readonly Label emptyLabel = new Label();
+    private readonly Label[] metricValues = new Label[3];
+    private readonly Label[] metricCaptions = new Label[3];
+    private readonly TextBox searchBox = new TextBox();
+    private readonly Label searchHintLabel = new Label();
+    private readonly Button[] filterButtons = new Button[3];
+    private readonly Button detailsButton = new UmiButton();
+    private readonly Panel technicalPanel = new Panel();
     private readonly ProgressBar progress = new ProgressBar();
     private readonly ComboBox languageBox = new ComboBox();
     private readonly ToolTip informationToolTip = new ToolTip();
@@ -54,28 +75,29 @@ internal sealed class ClaimerForm : Form
     private string selectedAchievementFile;
     private string workerOperation;
     private int lastClaimCount;
+    private int currentFilter;
+    private bool logExpanded;
+    private bool detailsExpanded;
+    private string statusKey = "ready";
+    private SteamArtwork steamArtwork;
+    private readonly Dictionary<string, Image> achievementImages = new Dictionary<string, Image>(StringComparer.Ordinal);
+    private readonly HashSet<string> pendingArtwork = new HashSet<string>(StringComparer.Ordinal);
+    private int artworkGeneration;
     private bool English { get { return languageBox.SelectedIndex == 0; } }
 
     public ClaimerForm()
     {
         Text = "Umi Achievement Claimer";
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(1180, 820);
-        MinimumSize = new Size(960, 720);
+        ClientSize = new Size(1220, 840);
+        MinimumSize = new Size(1040, 760);
         Font = UiTheme.Font(9F);
         BackColor = UiTheme.Canvas;
         ForeColor = UiTheme.Text;
         AutoScaleMode = AutoScaleMode.Dpi;
-
-        try
-        {
-            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-        }
-        catch
-        {
-            // The embedded EXE icon remains available even if Windows cannot extract it here.
-        }
-
+        DoubleBuffered = true;
+        try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); }
+        catch { }
         BuildHeader();
         BuildPage();
         Controls.Add(pageLayout);
@@ -88,358 +110,554 @@ internal sealed class ClaimerForm : Form
     private void BuildHeader()
     {
         headerPanel.Dock = DockStyle.Top;
-        headerPanel.Height = 92;
-        headerPanel.BackColor = UiTheme.Surface;
-        headerPanel.Padding = new Padding(24, 12, 24, 10);
-
+        headerPanel.Height = 86;
+        headerPanel.BackColor = UiTheme.Canvas;
+        headerPanel.Padding = new Padding(24, 12, 24, 12);
         brandLogo.Location = new Point(24, 14);
-        brandLogo.Size = new Size(60, 60);
+        brandLogo.Size = new Size(56, 56);
         brandLogo.SizeMode = PictureBoxSizeMode.Zoom;
         brandLogo.Image = LoadBrandLogo();
-
-        titleLabel.Font = UiTheme.Font(18F, FontStyle.Bold);
-        titleLabel.ForeColor = UiTheme.Navy;
+        titleLabel.Font = UiTheme.Font(17F, FontStyle.Bold);
         titleLabel.AutoSize = true;
-        titleLabel.Location = new Point(98, 16);
-
-        subtitleLabel.Font = UiTheme.Font(9.25F);
+        titleLabel.Location = new Point(96, 14);
+        subtitleLabel.Font = UiTheme.Font(9F);
         subtitleLabel.ForeColor = UiTheme.MutedText;
         subtitleLabel.AutoSize = true;
-        subtitleLabel.Location = new Point(100, 52);
-
+        subtitleLabel.Location = new Point(98, 49);
         languageBox.DropDownStyle = ComboBoxStyle.DropDownList;
         languageBox.Items.AddRange(new object[] { "English", "Tiếng Việt" });
         languageBox.SelectedIndex = 0;
-        languageBox.Font = UiTheme.Font(9.25F);
-        languageBox.Dock = DockStyle.Fill;
-
-        Panel languageHost = new Panel
+        languageBox.FlatStyle = FlatStyle.Flat;
+        languageBox.DrawMode = DrawMode.OwnerDrawFixed;
+        languageBox.BackColor = UiTheme.Surface;
+        languageBox.ForeColor = UiTheme.Text;
+        languageBox.DrawItem += delegate(object sender, DrawItemEventArgs e)
         {
-            Dock = DockStyle.Right,
-            Width = 182,
-            Padding = new Padding(0, 17, 0, 15),
-            BackColor = UiTheme.Surface
+            using (SolidBrush brush = new SolidBrush((e.State & DrawItemState.Selected) != 0 ? UiTheme.Border : UiTheme.Surface))
+                e.Graphics.FillRectangle(brush, e.Bounds);
+            if (e.Index >= 0)
+                TextRenderer.DrawText(e.Graphics, languageBox.Items[e.Index].ToString(), languageBox.Font, e.Bounds, UiTheme.Text,
+                    TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            e.DrawFocusRectangle();
         };
+        languageBox.Dock = DockStyle.Top;
+        languageBox.AccessibleName = "Language / Ngôn ngữ";
+        Panel languageHost = new Panel { Dock = DockStyle.Right, Width = 124, Padding = new Padding(0, 17, 0, 0) };
         languageHost.Controls.Add(languageBox);
-
-        headerPanel.Controls.AddRange(new Control[] { brandLogo, titleLabel, subtitleLabel, languageHost });
+        steamStatusLabel.Dock = DockStyle.Right;
+        steamStatusLabel.Width = 170;
+        steamStatusLabel.TextAlign = ContentAlignment.MiddleCenter;
+        steamStatusLabel.Font = UiTheme.Font(9F);
+        headerPanel.Controls.AddRange(new Control[] { brandLogo, titleLabel, subtitleLabel, steamStatusLabel, languageHost });
         headerPanel.Paint += delegate(object sender, PaintEventArgs e)
         {
             using (Pen pen = new Pen(UiTheme.Border))
-                e.Graphics.DrawLine(pen, 0, headerPanel.Height - 1, headerPanel.Width, headerPanel.Height - 1);
-            using (SolidBrush brush = new SolidBrush(UiTheme.Orange))
-                e.Graphics.FillRectangle(brush, 0, headerPanel.Height - 3, 84, 3);
+                e.Graphics.DrawLine(pen, 24, headerPanel.Height - 1, headerPanel.Width - 24, headerPanel.Height - 1);
         };
     }
 
     private void BuildPage()
     {
         pageLayout.Dock = DockStyle.Fill;
-        pageLayout.BackColor = UiTheme.Canvas;
-        pageLayout.Padding = new Padding(22, 18, 22, 16);
+        pageLayout.Padding = new Padding(24, 20, 24, 18);
         pageLayout.ColumnCount = 2;
-        pageLayout.RowCount = 4;
-        pageLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320F));
+        pageLayout.RowCount = 3;
+        pageLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 266F));
         pageLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 112F));
         pageLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 158F));
-        pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 5F));
-
-        BuildGameCard();
+        pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 56F));
+        pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
         BuildInformationCard();
         BuildAchievementCard();
         BuildLogCard();
-
         progress.Dock = DockStyle.Fill;
         progress.Margin = new Padding(0);
-        progress.Style = ProgressBarStyle.Blocks;
-
-        pageLayout.Controls.Add(gameCard, 0, 0);
-        pageLayout.SetColumnSpan(gameCard, 2);
-        pageLayout.Controls.Add(informationCard, 0, 1);
-        pageLayout.Controls.Add(achievementCard, 1, 1);
-        pageLayout.Controls.Add(logCard, 0, 2);
+        progress.Visible = false;
+        pageLayout.Controls.Add(informationCard, 0, 0);
+        pageLayout.Controls.Add(achievementCard, 1, 0);
+        pageLayout.Controls.Add(logCard, 0, 1);
         pageLayout.SetColumnSpan(logCard, 2);
-        pageLayout.Controls.Add(progress, 0, 3);
+        pageLayout.Controls.Add(progress, 0, 2);
         pageLayout.SetColumnSpan(progress, 2);
+        SetInformation(null);
     }
 
     private void BuildGameCard()
     {
         gameCard.Dock = DockStyle.Fill;
-        gameCard.Padding = new Padding(20, 13, 20, 15);
-        gameCard.AccentColor = UiTheme.Blue;
-
-        gameFolderTitleLabel.Font = UiTheme.Font(10F, FontStyle.Bold);
-        gameFolderTitleLabel.ForeColor = UiTheme.Navy;
+        gameCard.Margin = new Padding(0);
         gameFolderTitleLabel.Dock = DockStyle.Top;
-        gameFolderTitleLabel.Height = 23;
-
-        gameFolderHintLabel.Font = UiTheme.Font(8.5F);
-        gameFolderHintLabel.ForeColor = UiTheme.MutedText;
-        gameFolderHintLabel.Dock = DockStyle.Top;
-        gameFolderHintLabel.Height = 22;
-
-        TableLayoutPanel pathLayout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 3,
-            RowCount = 1,
-            Margin = new Padding(0),
-            Padding = new Padding(0, 3, 0, 0)
-        };
+        gameFolderTitleLabel.Height = 22;
+        gameFolderTitleLabel.ForeColor = UiTheme.MutedText;
+        TableLayoutPanel pathLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Margin = new Padding(0) };
+        pathLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 142F));
-        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 122F));
-
+        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118F));
+        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80F));
+        Panel input = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.Canvas, Padding = new Padding(10, 8, 8, 0), Margin = new Padding(0, 0, 8, 0) };
         pathBox.Dock = DockStyle.Fill;
-        pathBox.Margin = new Padding(0, 0, 10, 0);
-        pathBox.Font = UiTheme.Font(10F);
-        pathBox.BorderStyle = BorderStyle.FixedSingle;
-
+        pathBox.BorderStyle = BorderStyle.None;
+        pathBox.BackColor = UiTheme.Canvas;
+        pathBox.ForeColor = UiTheme.Text;
+        pathBox.KeyDown += delegate(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Enter && scanButton.Enabled) { e.SuppressKeyPress = true; DetectSelectedGame(); } };
+        input.Controls.Add(pathBox);
         ConfigureButton(browseButton, UmiButtonStyle.Secondary);
         browseButton.Dock = DockStyle.Fill;
-        browseButton.Margin = new Padding(0, 0, 8, 0);
+        browseButton.Margin = new Padding(0, 0, 6, 0);
         browseButton.Click += BrowseForGame;
-
-        ConfigureButton(scanButton, UmiButtonStyle.Primary);
+        ConfigureButton(scanButton, UmiButtonStyle.Secondary);
+        scanButton.ForeColor = UiTheme.Cyan;
         scanButton.Dock = DockStyle.Fill;
-        scanButton.Margin = new Padding(0);
         scanButton.Click += delegate { DetectSelectedGame(); };
-
-        pathLayout.Controls.Add(pathBox, 0, 0);
+        pathLayout.Controls.Add(input, 0, 0);
         pathLayout.Controls.Add(browseButton, 1, 0);
         pathLayout.Controls.Add(scanButton, 2, 0);
         gameCard.Controls.Add(pathLayout);
-        gameCard.Controls.Add(gameFolderHintLabel);
         gameCard.Controls.Add(gameFolderTitleLabel);
     }
 
     private void BuildInformationCard()
     {
         informationCard.Dock = DockStyle.Fill;
-        informationCard.Padding = new Padding(18, 14, 18, 14);
-        informationCard.Margin = new Padding(0, 0, 12, 12);
-        informationCard.AccentColor = UiTheme.Navy;
-
+        informationCard.Margin = new Padding(0, 0, 16, 0);
+        informationCard.Padding = new Padding(18);
+        TableLayoutPanel summary = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 9, Margin = new Padding(0) };
+        summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        foreach (float height in new float[] { 112, 24, 68, 28, 64, 36, 0 }) summary.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+        summary.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        summary.RowStyles.Add(new RowStyle(SizeType.Absolute, 56F));
+        Panel coverHost = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 12), BackColor = UiTheme.SurfaceMuted };
+        gameCover.Dock = DockStyle.Fill;
+        gameCover.SizeMode = PictureBoxSizeMode.Zoom;
+        gameCover.Visible = false;
+        coverFallback.Dock = DockStyle.Fill;
+        coverFallback.ForeColor = UiTheme.MutedText;
+        coverFallback.TextAlign = ContentAlignment.MiddleCenter;
+        coverHost.Controls.Add(coverFallback);
+        coverHost.Controls.Add(gameCover);
+        summary.Controls.Add(coverHost, 0, 0);
+        detectionTitleLabel.Dock = DockStyle.Fill;
+        detectionTitleLabel.ForeColor = UiTheme.Primary;
         detectionTitleLabel.Font = UiTheme.Font(10F, FontStyle.Bold);
-        detectionTitleLabel.ForeColor = UiTheme.Navy;
-        detectionTitleLabel.Dock = DockStyle.Top;
-        detectionTitleLabel.Height = 32;
-
-        TableLayoutPanel values = new TableLayoutPanel
+        gameValue.Dock = DockStyle.Fill;
+        gameValue.Font = UiTheme.Font(17F, FontStyle.Bold);
+        gameValue.AutoEllipsis = true;
+        detectionStatusLabel.Dock = DockStyle.Fill;
+        detectionStatusLabel.ForeColor = UiTheme.MutedText;
+        summary.Controls.Add(detectionTitleLabel, 0, 1);
+        summary.Controls.Add(gameValue, 0, 2);
+        summary.Controls.Add(detectionStatusLabel, 0, 3);
+        TableLayoutPanel metadata = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = new Padding(0) };
+        metadata.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        metadata.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58F));
+        metadata.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42F));
+        metadata.Controls.Add(CreateInformationCell(1, appIdValue), 0, 0);
+        metadata.Controls.Add(CreateInformationCell(3, architectureValue), 1, 0);
+        summary.Controls.Add(metadata, 0, 4);
+        ConfigureButton(detailsButton, UmiButtonStyle.Ghost);
+        detailsButton.Dock = DockStyle.Fill;
+        detailsButton.ForeColor = UiTheme.Cyan;
+        detailsButton.Padding = new Padding(0);
+        detailsButton.Click += delegate
         {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 5,
-            Margin = new Padding(0)
+            detailsExpanded = !detailsExpanded;
+            technicalPanel.Visible = detailsExpanded;
+            summary.RowStyles[6].Height = detailsExpanded ? 112F * Font.Height / 15F : 0F;
+            summary.RowStyles[0].Height = detailsExpanded ? 0F : 112F * Font.Height / 15F;
+            coverHost.Visible = !detailsExpanded;
+            UpdateDetailsLabel();
         };
-        values.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        for (int index = 0; index < 5; index++)
-            values.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
-        values.Controls.Add(CreateInformationCell(0, gameValue), 0, 0);
-        values.Controls.Add(CreateInformationCell(1, appIdValue), 0, 1);
-        values.Controls.Add(CreateInformationCell(3, architectureValue), 0, 2);
-        values.Controls.Add(CreateInformationCell(4, interfaceValue), 0, 3);
-        values.Controls.Add(CreateInformationCell(2, dllValue), 0, 4);
-
-        informationCard.Controls.Add(values);
-        informationCard.Controls.Add(detectionTitleLabel);
+        technicalPanel.Dock = DockStyle.Fill;
+        technicalPanel.Visible = false;
+        Control apiCell = CreateInformationCell(2, dllValue);
+        apiCell.Dock = DockStyle.Bottom;
+        apiCell.Height = 60;
+        Control interfaceCell = CreateInformationCell(4, interfaceValue);
+        interfaceCell.Dock = DockStyle.Top;
+        interfaceCell.Height = 52;
+        technicalPanel.Controls.Add(apiCell);
+        technicalPanel.Controls.Add(interfaceCell);
+        summary.Controls.Add(detailsButton, 0, 5);
+        summary.Controls.Add(technicalPanel, 0, 6);
+        safeModeLabel.Dock = DockStyle.Fill;
+        safeModeLabel.Font = UiTheme.Font(9F);
+        safeModeLabel.ForeColor = UiTheme.Success;
+        safeModeLabel.TextAlign = ContentAlignment.BottomLeft;
+        summary.Controls.Add(safeModeLabel, 0, 8);
+        informationCard.Controls.Add(summary);
     }
 
     private void BuildAchievementCard()
     {
         achievementCard.Dock = DockStyle.Fill;
-        achievementCard.Padding = new Padding(18, 14, 18, 14);
-        achievementCard.Margin = new Padding(0, 0, 0, 12);
-        achievementCard.AccentColor = UiTheme.Orange;
-
-        Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 78, BackColor = UiTheme.Surface };
-        achievementTitleLabel.Font = UiTheme.Font(10F, FontStyle.Bold);
-        achievementTitleLabel.ForeColor = UiTheme.Navy;
+        achievementCard.Padding = new Padding(20, 16, 20, 12);
+        TableLayoutPanel workspace = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 8, Margin = new Padding(0) };
+        workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        foreach (float height in new float[] { 50, 62, 64, 48, 34 }) workspace.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+        workspace.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        workspace.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
+        workspace.RowStyles.Add(new RowStyle(SizeType.Absolute, 68F));
+        Panel heading = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0) };
         achievementTitleLabel.Dock = DockStyle.Top;
-        achievementTitleLabel.Height = 32;
-        achievementTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
-
-        TableLayoutPanel actions = new TableLayoutPanel
+        achievementTitleLabel.Height = 29;
+        achievementTitleLabel.Font = UiTheme.Font(18F, FontStyle.Bold);
+        achievementHintLabel.Dock = DockStyle.Bottom;
+        achievementHintLabel.Height = 20;
+        achievementHintLabel.ForeColor = UiTheme.MutedText;
+        heading.Controls.Add(achievementTitleLabel);
+        heading.Controls.Add(achievementHintLabel);
+        workspace.Controls.Add(heading, 0, 0);
+        BuildGameCard();
+        workspace.Controls.Add(gameCard, 0, 1);
+        TableLayoutPanel metrics = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Margin = new Padding(0, 8, 0, 4) };
+        metrics.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        for (int i = 0; i < 3; i++)
         {
-            Dock = DockStyle.Fill,
-            ColumnCount = 5,
-            RowCount = 1,
-            Padding = new Padding(0),
-            Margin = new Padding(0)
-        };
-        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104F));
-        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118F));
-        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 88F));
-        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 208F));
-        ConfigureButton(selectAllButton, UmiButtonStyle.Secondary);
-        ConfigureButton(selectLockedButton, UmiButtonStyle.Secondary);
-        ConfigureButton(clearSelectionButton, UmiButtonStyle.Ghost);
-        ConfigureButton(claimButton, UmiButtonStyle.Accent);
-        selectAllButton.Dock = DockStyle.Fill;
-        selectLockedButton.Dock = DockStyle.Fill;
-        clearSelectionButton.Dock = DockStyle.Fill;
-        claimButton.Dock = DockStyle.Fill;
-        selectAllButton.Margin = new Padding(0, 0, 6, 0);
-        selectLockedButton.Margin = new Padding(0, 0, 6, 0);
-        clearSelectionButton.Margin = new Padding(0, 0, 6, 0);
-        claimButton.Margin = new Padding(6, 0, 0, 0);
-        selectAllButton.Enabled = false;
-        selectLockedButton.Enabled = false;
-        clearSelectionButton.Enabled = false;
-        claimButton.Enabled = false;
+            metrics.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+            Panel metric = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0) };
+            metricCaptions[i] = new Label { Dock = DockStyle.Top, Height = 18, ForeColor = UiTheme.MutedText };
+            metricValues[i] = new Label { Dock = DockStyle.Fill, Font = UiTheme.Font(19F, FontStyle.Bold), ForeColor = i == 1 ? UiTheme.Success : i == 2 ? UiTheme.Warning : UiTheme.Text };
+            metric.Controls.Add(metricValues[i]);
+            metric.Controls.Add(metricCaptions[i]);
+            metrics.Controls.Add(metric, i, 0);
+        }
+        workspace.Controls.Add(metrics, 0, 2);
+        TableLayoutPanel filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, Margin = new Padding(0, 6, 0, 6) };
+        filters.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        foreach (float width in new float[] { 66, 92, 96 }) filters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, width));
+        filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        for (int i = 0; i < 3; i++)
+        {
+            int filter = i;
+            filterButtons[i] = new UmiButton { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 4, 0), Padding = new Padding(4, 0, 4, 0) };
+            ConfigureButton(filterButtons[i], UmiButtonStyle.Ghost);
+            filterButtons[i].Click += delegate { currentFilter = filter; ApplyAchievementFilter(); };
+            filters.Controls.Add(filterButtons[i], i, 0);
+        }
+        Panel searchHost = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.Canvas, Padding = new Padding(10, 8, 8, 0), Margin = new Padding(10, 0, 0, 0) };
+        searchHintLabel.Dock = DockStyle.Left;
+        searchHintLabel.Width = 52;
+        searchHintLabel.ForeColor = UiTheme.MutedText;
+        searchBox.Dock = DockStyle.Fill;
+        searchBox.BorderStyle = BorderStyle.None;
+        searchBox.BackColor = UiTheme.Canvas;
+        searchBox.ForeColor = UiTheme.Text;
+        searchBox.TextChanged += delegate { ApplyAchievementFilter(); };
+        searchHost.Controls.Add(searchBox);
+        searchHost.Controls.Add(searchHintLabel);
+        filters.Controls.Add(searchHost, 3, 0);
+        workspace.Controls.Add(filters, 0, 3);
+        TableLayoutPanel bulk = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, Margin = new Padding(0, 0, 0, 4) };
+        bulk.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        foreach (float width in new float[] { 132, 140, 96 }) bulk.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, width));
+        bulk.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        Button[] bulkButtons = { selectAllButton, selectLockedButton, clearSelectionButton };
+        for (int i = 0; i < bulkButtons.Length; i++)
+        {
+            ConfigureButton(bulkButtons[i], UmiButtonStyle.Ghost);
+            bulkButtons[i].Font = UiTheme.Font(8.5F);
+            bulkButtons[i].Padding = new Padding(2, 0, 2, 0);
+            bulkButtons[i].Dock = DockStyle.Fill;
+            bulk.Controls.Add(bulkButtons[i], i, 0);
+        }
         selectAllButton.Click += delegate { SetAchievementChecks(delegate { return true; }); };
         selectLockedButton.Click += delegate { SetAchievementChecks(item => !item.Achieved); };
-        clearSelectionButton.Click += delegate { SetAchievementChecks(delegate { return false; }); };
+        clearSelectionButton.Click += delegate { achievementList.ClearChecks(); };
+        visibleCountLabel.Dock = DockStyle.Fill;
+        visibleCountLabel.TextAlign = ContentAlignment.MiddleRight;
+        visibleCountLabel.ForeColor = UiTheme.MutedText;
+        visibleCountLabel.Font = UiTheme.Font(8F);
+        bulk.Controls.Add(visibleCountLabel, 3, 0);
+        workspace.Controls.Add(bulk, 0, 4);
+        Panel listHost = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0), BackColor = UiTheme.Surface };
+        achievementList.Dock = DockStyle.Fill;
+        achievementList.ArtworkProvider = GetAchievementImage;
+        achievementList.ChecksChanged += delegate { UpdateClaimButtonState(); };
+        achievementList.SelectedItemChanged += delegate { UpdateAchievementDescription(); };
+        achievementList.Scroll += delegate { QueueVisibleArtwork(); };
+        achievementList.Resize += delegate { QueueVisibleArtwork(); };
+        emptyLabel.Dock = DockStyle.Fill;
+        emptyLabel.TextAlign = ContentAlignment.MiddleCenter;
+        emptyLabel.ForeColor = UiTheme.MutedText;
+        emptyLabel.Font = UiTheme.Font(11F);
+        listHost.Controls.Add(achievementList);
+        listHost.Controls.Add(emptyLabel);
+        workspace.Controls.Add(listHost, 0, 5);
+        achievementDescriptionLabel.Dock = DockStyle.Fill;
+        achievementDescriptionLabel.Font = UiTheme.Font(8.5F);
+        achievementDescriptionLabel.ForeColor = UiTheme.MutedText;
+        achievementDescriptionLabel.TextAlign = ContentAlignment.MiddleLeft;
+        achievementDescriptionLabel.AutoEllipsis = true;
+        workspace.Controls.Add(achievementDescriptionLabel, 0, 6);
+        Panel footer = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0), Padding = new Padding(0, 12, 0, 0) };
+        ConfigureButton(claimButton, UmiButtonStyle.Accent);
+        claimButton.Width = 194;
+        claimButton.Dock = DockStyle.Right;
         claimButton.Click += ClaimAchievements;
         claimButton.EnabledChanged += delegate { RefreshClaimButtonStyle(); };
-        RefreshClaimButtonStyle();
-        actions.Controls.Add(selectAllButton, 0, 0);
-        actions.Controls.Add(selectLockedButton, 1, 0);
-        actions.Controls.Add(clearSelectionButton, 2, 0);
-        actions.Controls.Add(claimButton, 4, 0);
-        toolbar.Controls.Add(actions);
-        toolbar.Controls.Add(achievementTitleLabel);
-
-        safeModeLabel.Dock = DockStyle.Top;
-        safeModeLabel.Height = 34;
-        safeModeLabel.Font = UiTheme.Font(8.75F);
-        safeModeLabel.ForeColor = UiTheme.Success;
-        safeModeLabel.BackColor = UiTheme.SuccessSurface;
-        safeModeLabel.Padding = new Padding(10, 8, 8, 0);
-
-        achievementDescriptionLabel.Dock = DockStyle.Bottom;
-        achievementDescriptionLabel.Height = 48;
-        achievementDescriptionLabel.Padding = new Padding(12, 8, 12, 5);
-        achievementDescriptionLabel.ForeColor = UiTheme.MutedText;
-        achievementDescriptionLabel.BackColor = UiTheme.SurfaceMuted;
-        achievementDescriptionLabel.AutoEllipsis = true;
-
-        achievementList.Dock = DockStyle.Fill;
-        achievementList.Margin = new Padding(0, 8, 0, 8);
-        achievementList.BorderStyle = BorderStyle.None;
-        achievementList.BackColor = UiTheme.Surface;
-        achievementList.ForeColor = UiTheme.Text;
-        achievementList.Font = UiTheme.Font(9.5F);
-        achievementList.CheckOnClick = true;
-        achievementList.HorizontalScrollbar = true;
-        achievementList.IntegralHeight = false;
-        achievementList.ItemCheck += delegate { BeginInvoke(new Action(UpdateClaimButtonState)); };
-        achievementList.SelectedIndexChanged += delegate { UpdateAchievementDescription(); };
-
-        Panel listHost = new Panel { Dock = DockStyle.Fill, Padding = new Padding(1, 9, 1, 9), BackColor = UiTheme.Border };
-        listHost.Controls.Add(achievementList);
-        achievementCard.Controls.Add(listHost);
-        achievementCard.Controls.Add(achievementDescriptionLabel);
-        achievementCard.Controls.Add(safeModeLabel);
-        achievementCard.Controls.Add(toolbar);
+        Panel selection = new Panel { Dock = DockStyle.Fill };
+        selectedCountLabel.Dock = DockStyle.Top;
+        selectedCountLabel.Height = 24;
+        selectedCountLabel.Font = UiTheme.Font(11F, FontStyle.Bold);
+        confirmationHintLabel.Dock = DockStyle.Fill;
+        confirmationHintLabel.ForeColor = UiTheme.MutedText;
+        confirmationHintLabel.Font = UiTheme.Font(8.5F);
+        selection.Controls.Add(confirmationHintLabel);
+        selection.Controls.Add(selectedCountLabel);
+        footer.Controls.Add(selection);
+        footer.Controls.Add(claimButton);
+        footer.Paint += delegate(object sender, PaintEventArgs e) { using (Pen pen = new Pen(UiTheme.Border)) e.Graphics.DrawLine(pen, 0, 0, footer.Width, 0); };
+        workspace.Controls.Add(footer, 0, 7);
+        achievementCard.Controls.Add(workspace);
+        SetAchievementControlsEnabled(false);
+        claimButton.Enabled = false;
     }
 
     private void BuildLogCard()
     {
         logCard.Dock = DockStyle.Fill;
-        logCard.Padding = new Padding(18, 12, 18, 14);
-        logCard.AccentColor = UiTheme.Success;
-        logTitleLabel.Font = UiTheme.Font(10F, FontStyle.Bold);
-        logTitleLabel.ForeColor = UiTheme.Navy;
-        logTitleLabel.Dock = DockStyle.Top;
-        logTitleLabel.Height = 27;
-
+        logCard.Margin = new Padding(0, 10, 0, 0);
+        logCard.Padding = new Padding(10, 4, 10, 4);
+        Panel logHeader = new Panel { Dock = DockStyle.Top, Height = 34 };
+        ConfigureButton(logToggleButton, UmiButtonStyle.Ghost);
+        logToggleButton.Dock = DockStyle.Left;
+        logToggleButton.Width = 210;
+        logToggleButton.Click += delegate { SetLogExpanded(!logExpanded); };
+        ConfigureButton(copyLogButton, UmiButtonStyle.Ghost);
+        copyLogButton.Dock = DockStyle.Right;
+        copyLogButton.Width = 106;
+        copyLogButton.Click += delegate
+        {
+            try { if (logBox.TextLength > 0) Clipboard.SetText(logBox.Text); }
+            catch (System.Runtime.InteropServices.ExternalException) { AppendLog(L("Clipboard đang bận. Hãy thử sao chép lại.", "Clipboard is busy. Try copying again.")); }
+        };
+        statusLabel.Dock = DockStyle.Fill;
+        statusLabel.TextAlign = ContentAlignment.MiddleRight;
+        statusLabel.ForeColor = UiTheme.Success;
+        logHeader.Controls.Add(statusLabel);
+        logHeader.Controls.Add(logToggleButton);
+        logHeader.Controls.Add(copyLogButton);
         logBox.Dock = DockStyle.Fill;
         logBox.ReadOnly = true;
+        logBox.Multiline = true;
+        logBox.ScrollBars = ScrollBars.Vertical;
         logBox.BorderStyle = BorderStyle.None;
         logBox.BackColor = UiTheme.LogBackground;
         logBox.ForeColor = UiTheme.LogText;
-        logBox.Font = new Font("Consolas", 9.25F);
-        logBox.DetectUrls = false;
-
+        logBox.Font = new Font("Consolas", 9F);
+        logBox.Visible = false;
         logCard.Controls.Add(logBox);
-        logCard.Controls.Add(logTitleLabel);
+        logCard.Controls.Add(logHeader);
     }
 
     private static Image LoadBrandLogo()
     {
         using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("UmiBrandLogo"))
         {
-            if (stream == null)
-                return null;
-
-            using (Image image = Image.FromStream(stream))
-                return new Bitmap(image);
+            if (stream == null) return null;
+            using (Image image = Image.FromStream(stream)) return new Bitmap(image);
         }
     }
 
-    private void ConfigureButton(Button button, UmiButtonStyle style)
-    {
-        UiTheme.StyleButton(button, style);
-        button.Height = 32;
-    }
+    private void ConfigureButton(Button button, UmiButtonStyle style) { UiTheme.StyleButton(button, style); button.Height = 34; }
 
     private Control CreateInformationCell(int captionIndex, Label value)
     {
-        Panel cell = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.SurfaceMuted, Padding = new Padding(11, 7, 11, 5), Margin = new Padding(0, 0, 0, 6) };
-        Label caption = new Label
-        {
-            Dock = DockStyle.Top,
-            Height = 18,
-            Font = UiTheme.Font(8F, FontStyle.Bold),
-            ForeColor = UiTheme.MutedText
-        };
+        Panel cell = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 8, 0, 0) };
+        Label caption = new Label { Dock = DockStyle.Top, Height = 22, Font = UiTheme.Font(8F), ForeColor = UiTheme.MutedText };
         captionLabels[captionIndex] = caption;
         value.Dock = DockStyle.Fill;
-        value.Font = UiTheme.Font(9.25F, FontStyle.Bold);
-        value.ForeColor = UiTheme.Text;
+        value.Font = UiTheme.Font(10F, FontStyle.Bold);
         value.AutoEllipsis = true;
-        value.Text = "—";
         cell.Controls.Add(value);
         cell.Controls.Add(caption);
-        informationToolTip.SetToolTip(value, value.Text);
         return cell;
     }
 
-    private string L(string vietnamese, string english)
-    {
-        return English ? english : vietnamese;
-    }
+    private string L(string vietnamese, string english) { return English ? english : vietnamese; }
 
     private void ApplyLanguage()
     {
-        Text = L("Umi Achievement Claimer - Công cụ claim achievement Steam", "Umi Achievement Claimer");
+        Text = "Umi Achievement Claimer";
         titleLabel.Text = "Umi Achievement Claimer";
-        subtitleLabel.Text = L(
-            "Quét an toàn, xem trạng thái và chỉ claim những achievement bạn chọn.",
-            "Scan safely, review status, and claim only the achievements you select.");
-        gameFolderTitleLabel.Text = L("01  THƯ MỤC GAME STEAM", "01  STEAM GAME FOLDER");
-        gameFolderHintLabel.Text = L("Chọn đúng thư mục riêng của game; AppID sẽ được nhận diện tự động.", "Choose the game's own folder; its AppID is detected automatically.");
+        subtitleLabel.Text = L("Steam Midnight  /  Công cụ achievement Steam", "Steam Midnight  /  Steam achievement manager");
+        gameFolderTitleLabel.Text = L("Thư mục cài game Steam", "Steam game installation folder");
         browseButton.Text = L("Chọn thư mục", "Browse folder");
         scanButton.Text = L("Quét", "Scan");
-        detectionTitleLabel.Text = L("02  THÔNG TIN NHẬN DIỆN", "02  DETECTED GAME");
-        captionLabels[0].Text = L("GAME", "GAME");
-        captionLabels[1].Text = "APP ID";
+        pathBox.AccessibleName = gameFolderTitleLabel.Text;
+        detectionTitleLabel.Text = L("Game hiện tại", "Current game");
+        captionLabels[1].Text = "STEAM APP ID";
         captionLabels[2].Text = "STEAM API";
         captionLabels[3].Text = L("KIẾN TRÚC", "ARCHITECTURE");
         captionLabels[4].Text = "USER STATS";
-        safeModeLabel.Text = L(
-            "✓ Chế độ quét chỉ đọc — không achievement nào được tự chọn hoặc gửi lên Steam.",
-            "✓ Read-only scan — no achievement is selected or submitted automatically.");
-        achievementTitleLabel.Text = L("Achievement — chưa chọn mục nào", "Achievements — none selected");
-        selectAllButton.Text = L("Chọn tất cả", "Select all");
+        safeModeLabel.Text = L("Quét chỉ đọc.\nChỉ claim khi bạn xác nhận.", "Read-only scan.\nClaims require confirmation.");
+        coverFallback.Text = detectedGame == null ? L("Ảnh game sẽ hiện ở đây", "Game artwork appears here") : L("Không có ảnh game", "Game artwork unavailable");
+        achievementTitleLabel.Text = "Achievements";
+        achievementHintLabel.Text = L("Xem trạng thái và chỉ chọn những mục bạn muốn claim.", "Review status and choose only what you want to claim.");
+        selectAllButton.Text = L("Chọn đang hiện", "Select visible");
         selectLockedButton.Text = L("Chọn chưa mở", "Select locked");
-        clearSelectionButton.Text = L("Bỏ chọn", "Clear");
-        claimButton.Text = L("CLAIM ĐÃ CHỌN", "CLAIM SELECTED");
-        logTitleLabel.Text = L("NHẬT KÝ HOẠT ĐỘNG", "ACTIVITY LOG");
-        foreach (AchievementItem item in achievementList.Items)
-            item.English = English;
-        achievementList.Refresh();
+        clearSelectionButton.Text = L("Bỏ chọn hết", "Clear all");
+        claimButton.Text = L("Claim đã chọn", "Claim selected");
+        copyLogButton.Text = L("Sao chép log", "Copy log");
+        metricCaptions[0].Text = L("Tổng cộng", "Total");
+        metricCaptions[1].Text = L("Đã mở", "Unlocked");
+        metricCaptions[2].Text = L("Chưa mở", "Locked");
+        filterButtons[0].Text = L("Tất cả", "All");
+        filterButtons[1].Text = L("Chưa mở", "Locked");
+        filterButtons[2].Text = L("Đã mở", "Unlocked");
+        searchHintLabel.Text = L("Tìm", "Search");
+        searchBox.AccessibleName = L("Tìm tên, mô tả hoặc API ID", "Search name, description or API ID");
+        informationToolTip.SetToolTip(searchBox, searchBox.AccessibleName);
+        informationToolTip.SetToolTip(selectAllButton, L("Chọn tất cả mục đang hiện. Mục ẩn giữ nguyên.", "Select all visible results. Hidden selections are kept."));
+        informationToolTip.SetToolTip(selectLockedButton, L("Chỉ chọn mục chưa mở trong kết quả đang hiện. Mục ẩn giữ nguyên.", "Select locked achievements in visible results. Hidden selections are kept."));
+        achievementList.English = English;
+        foreach (AchievementItem item in achievementList.Items) item.English = English;
+        SetInformation(detectedGame);
+        UpdateDetailsLabel();
+        UpdateLogLabel();
+        ApplyAchievementFilter();
+        UpdateStatus(statusKey);
+    }
+
+    private void UpdateDetailsLabel() { detailsButton.Text = detailsExpanded ? L("Ẩn chi tiết kỹ thuật", "Hide technical details") : L("Chi tiết kỹ thuật", "View technical details"); }
+    private void UpdateLogLabel() { logToggleButton.Text = (logExpanded ? "-  " : "+  ") + L("Nhật ký hoạt động", "Activity log"); }
+    private void SetLogExpanded(bool expanded)
+    {
+        logExpanded = expanded;
+        float scale = Font.Height / 15F;
+        pageLayout.RowStyles[1].Height = (expanded ? (ClientSize.Height / scale < 800 ? 120F : 186F) : 56F) * scale;
+        logBox.Visible = expanded;
+        UpdateLogLabel();
+    }
+
+    private void ApplyAchievementFilter()
+    {
+        achievementList.ApplyFilter(searchBox.Text, currentFilter);
+        for (int i = 0; i < filterButtons.Length; i++)
+        {
+            filterButtons[i].BackColor = i == currentFilter ? UiTheme.Border : UiTheme.Surface;
+            filterButtons[i].ForeColor = i == currentFilter ? UiTheme.Cyan : UiTheme.MutedText;
+            filterButtons[i].AccessibleDescription = i == currentFilter ? L("Bộ lọc hiện tại", "Current filter") : string.Empty;
+        }
         UpdateSelectionSummary();
         UpdateAchievementDescription();
+        QueueVisibleArtwork();
+    }
+
+    private void UpdateStatus(string key)
+    {
+        statusKey = key;
+        statusLabel.Text = key == "scanning" ? L("Đang quét (chỉ đọc)", "Scanning (read-only)")
+            : key == "claiming" ? L("Đang claim...", "Claiming...")
+            : key == "complete" ? L("Hoàn tất", "Completed")
+            : key == "failed" ? L("Có lỗi - mở nhật ký", "Failed - open activity log") : L("Sẵn sàng", "Ready");
+        statusLabel.ForeColor = key == "failed" ? UiTheme.Warning : key == "scanning" || key == "claiming" ? UiTheme.Cyan : UiTheme.Success;
+        bool steamRunning = Process.GetProcessesByName("steam").Length > 0;
+        steamStatusLabel.Text = steamRunning ? L("Steam đang chạy", "Steam running") : L("Steam chưa mở", "Steam not running");
+        steamStatusLabel.ForeColor = steamRunning ? UiTheme.Success : UiTheme.MutedText;
+        UpdateSelectionSummary();
+    }
+
+    private void SetBusy(bool busy)
+    {
+        progress.Visible = busy;
+        pageLayout.RowStyles[2].Height = busy ? 3F * Font.Height / 15F : 0F;
+        browseButton.Enabled = scanButton.Enabled = pathBox.Enabled = languageBox.Enabled = !busy;
+        searchBox.Enabled = !busy;
+        foreach (Button button in filterButtons) button.Enabled = !busy;
+        SetAchievementControlsEnabled(!busy && achievementList.Items.Count > 0);
+        claimButton.Enabled = !busy && detectedGame != null && achievementList.CheckedItems.Any();
+    }
+
+    private void ClearArtwork()
+    {
+        artworkGeneration++;
+        gameCover.Image = null;
+        gameCover.Visible = false;
+        if (steamArtwork != null) { steamArtwork.Dispose(); steamArtwork = null; }
+        foreach (Image image in achievementImages.Values) image.Dispose();
+        achievementImages.Clear();
+        pendingArtwork.Clear();
+        coverFallback.Text = L("Đang tải ảnh game...", "Loading game artwork...");
+    }
+
+    private async void LoadGameArtwork(string appId)
+    {
+        int generation = artworkGeneration;
+        SteamArtwork loaded;
+        try { loaded = await SteamArtwork.LoadAsync(appId); }
+        catch (Exception)
+        {
+            if (!IsDisposed && generation == artworkGeneration)
+                coverFallback.Text = L("Không có ảnh game", "Game artwork unavailable");
+            return; // Optional artwork must never interrupt the achievement workflow.
+        }
+        if (IsDisposed || Disposing || generation != artworkGeneration) { loaded.Dispose(); return; }
+        steamArtwork = loaded;
+        gameCover.Image = loaded.Cover;
+        gameCover.Visible = loaded.Cover != null;
+        coverFallback.Text = L("Không có ảnh game", "Game artwork unavailable");
+        QueueVisibleArtwork();
+        achievementList.Invalidate();
+    }
+
+    private string GetAchievementIconUrl(AchievementItem item)
+    {
+        if (steamArtwork == null) return null;
+        Dictionary<string, string> urls = item.Achieved ? steamArtwork.IconUrls : steamArtwork.LockedIconUrls;
+        string url;
+        if (!string.IsNullOrEmpty(item.Id) && urls.TryGetValue("id:" + item.Id, out url)) return url;
+        if (!string.IsNullOrEmpty(item.Name) && urls.TryGetValue("name:" + item.Name, out url)) return url;
+        if (!item.Achieved)
+        {
+            if (!string.IsNullOrEmpty(item.Id) && steamArtwork.IconUrls.TryGetValue("id:" + item.Id, out url)) return url;
+            if (!string.IsNullOrEmpty(item.Name) && steamArtwork.IconUrls.TryGetValue("name:" + item.Name, out url)) return url;
+        }
+        return null;
+    }
+
+    private Image GetAchievementImage(AchievementItem item)
+    {
+        string url = GetAchievementIconUrl(item);
+        Image image;
+        return url != null && achievementImages.TryGetValue(url, out image) ? image : null;
+    }
+
+    private void QueueVisibleArtwork()
+    {
+        if (steamArtwork == null || achievementList.Rows.Count == 0 || IsDisposed || Disposing) return;
+        int first = Math.Max(0, achievementList.FirstDisplayedScrollingRowIndex);
+        int count = Math.Max(1, achievementList.DisplayedRowCount(true));
+        for (int index = first; index < Math.Min(achievementList.Rows.Count, first + count + 1); index++)
+        {
+            AchievementItem item = achievementList.Rows[index].Tag as AchievementItem;
+            if (item == null) continue;
+            string url = GetAchievementIconUrl(item);
+            if (url != null && !achievementImages.ContainsKey(url) && pendingArtwork.Add(url))
+                LoadAchievementIcon(url, artworkGeneration);
+        }
+    }
+
+    private async void LoadAchievementIcon(string url, int generation)
+    {
+        Image image;
+        try { image = await SteamArtwork.LoadImageAsync(url); }
+        catch (Exception) { return; }
+        if (IsDisposed || Disposing || generation != artworkGeneration)
+        {
+            if (image != null) image.Dispose();
+            return;
+        }
+        // Keep unsuccessful requests in the pending set for this scan, avoiding repeated offline retries.
+        if (image == null) return;
+        pendingArtwork.Remove(url);
+        achievementImages[url] = image;
+        achievementList.Invalidate();
     }
 
     private void BrowseForGame(object sender, EventArgs e)
     {
+        if (workerProcess != null) return;
         using (FolderBrowserDialog dialog = new FolderBrowserDialog())
         {
             dialog.Description = L("Chọn thư mục cài đặt của game Steam", "Select the Steam game installation folder");
@@ -459,8 +677,11 @@ internal sealed class ClaimerForm : Form
 
     private void DetectSelectedGame()
     {
+        if (workerProcess != null) return;
+        UpdateStatus("scanning");
         claimButton.Enabled = false;
-        achievementList.Items.Clear();
+        ClearArtwork();
+        achievementList.ClearItems();
         SetAchievementControlsEnabled(false);
         detectedGame = null;
         SetInformation(null);
@@ -469,6 +690,7 @@ internal sealed class ClaimerForm : Form
         {
             detectedGame = SteamGameDetector.Detect(pathBox.Text, English);
             SetInformation(detectedGame);
+            LoadGameArtwork(detectedGame.AppId);
             AppendLog(L("Nhận diện thành công: ", "Detected successfully: ") + detectedGame.Name + " (AppID " + detectedGame.AppId + ", " + detectedGame.Architecture + ")");
             if (detectedGame.UsesCompatibilityProvider)
                 AppendLog(L("Đang dùng Steam API compatibility provider: ", "Using Steam API compatibility provider: ") + detectedGame.SteamApiPath);
@@ -476,6 +698,7 @@ internal sealed class ClaimerForm : Form
         }
         catch (Exception error)
         {
+            UpdateStatus("failed");
             AppendLog(L("LỖI NHẬN DIỆN: ", "DETECTION ERROR: ") + error.Message);
             MessageBox.Show(error.Message, L("Không nhận diện được game", "Could not detect the game"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
@@ -487,6 +710,7 @@ internal sealed class ClaimerForm : Form
             return;
         if (Process.GetProcessesByName("steam").Length == 0)
         {
+            UpdateStatus("failed");
             AppendLog(L("Không thể tải achievement vì Steam chưa chạy.", "Cannot load achievements because Steam is not running."));
             MessageBox.Show(
                 L("Hãy mở Steam ở chế độ Online rồi bấm Quét lại để tải danh sách achievement.", "Start Steam in Online mode, then click Scan again to load the achievement list."),
@@ -496,15 +720,16 @@ internal sealed class ClaimerForm : Form
             return;
         }
 
-        achievementList.Items.Clear();
+        achievementList.ClearItems();
         achievementDescriptionLabel.Text = string.Empty;
         SetAchievementControlsEnabled(false);
-        AppendLog(L("Đang tải danh sách achievement — thao tác này chỉ đọc, không unlock.", "Loading achievements — this is read-only and does not unlock anything."));
+        AppendLog(L("Đang tải danh sách achievement - thao tác này chỉ đọc, không unlock.", "Loading achievements - this is read-only and does not unlock anything."));
         StartWorker("list", null);
     }
 
     private void StartWorker(string operation, string selectionPath)
     {
+        bool workerStarted = false;
         try
         {
             extractedWorker = ExtractWorker(detectedGame.Architecture);
@@ -533,17 +758,24 @@ internal sealed class ClaimerForm : Form
             workerProcess.OutputDataReceived += WorkerOutput;
             workerProcess.ErrorDataReceived += WorkerOutput;
             workerProcess.Exited += WorkerExited;
-            claimButton.Enabled = false;
+            SetBusy(true);
+            UpdateStatus(operation == "list" ? "scanning" : "claiming");
             progress.Style = ProgressBarStyle.Marquee;
-            workerProcess.Start();
+            workerStarted = workerProcess.Start();
+            if (!workerStarted) throw new InvalidOperationException("Worker did not start.");
             workerProcess.BeginOutputReadLine();
             workerProcess.BeginErrorReadLine();
         }
         catch (Exception error)
         {
             AppendLog(L("LỖI KHỞI CHẠY WORKER: ", "WORKER START ERROR: ") + error.Message);
+            // A started worker retains its context until WorkerExited completes on the UI thread.
+            if (workerStarted) return;
             progress.Style = ProgressBarStyle.Blocks;
+            if (workerProcess != null) workerProcess.Dispose();
             workerProcess = null;
+            SetBusy(false);
+            UpdateStatus("failed");
             CleanupWorker();
             SetAchievementControlsEnabled(achievementList.Items.Count > 0);
             UpdateClaimButtonState();
@@ -552,19 +784,17 @@ internal sealed class ClaimerForm : Form
 
     private void SetInformation(DetectedGame game)
     {
-        gameValue.Text = game == null ? "—" : game.Name;
-        appIdValue.Text = game == null ? "—" : game.AppId;
-        dllValue.Text = game == null ? "—" : game.SteamApiPath
-            + (string.IsNullOrEmpty(game.SteamApiArchiveEntry) ? string.Empty : " :: " + game.SteamApiArchiveEntry
-                + (string.IsNullOrEmpty(game.SteamApiArchiveFormat) ? string.Empty : " [" + game.SteamApiArchiveFormat.ToUpperInvariant() + "]"))
+        gameValue.Text = game == null ? L("Chưa chọn game", "No game selected") : game.Name;
+        detectionStatusLabel.Text = game == null ? L("Chọn thư mục để bắt đầu", "Choose a folder to begin") : L("Nhận diện thành công", "Detected successfully");
+        detectionStatusLabel.ForeColor = game == null ? UiTheme.MutedText : UiTheme.Success;
+        appIdValue.Text = game == null ? "-" : game.AppId;
+        dllValue.Text = game == null ? "-" : game.SteamApiPath
+            + (string.IsNullOrEmpty(game.SteamApiArchiveEntry) ? string.Empty : " :: " + game.SteamApiArchiveEntry)
             + (game.UsesCompatibilityProvider ? " [COMPATIBILITY PROVIDER]" : string.Empty);
-        architectureValue.Text = game == null ? "—" : game.Architecture;
-        interfaceValue.Text = game == null ? "—" : game.InterfaceVersion;
-        informationToolTip.SetToolTip(gameValue, gameValue.Text);
-        informationToolTip.SetToolTip(appIdValue, appIdValue.Text);
-        informationToolTip.SetToolTip(architectureValue, architectureValue.Text);
-        informationToolTip.SetToolTip(interfaceValue, interfaceValue.Text);
-        informationToolTip.SetToolTip(dllValue, dllValue.Text);
+        architectureValue.Text = game == null ? "-" : game.Architecture;
+        interfaceValue.Text = game == null ? "-" : game.InterfaceVersion;
+        foreach (Label value in new Label[] { gameValue, appIdValue, dllValue, architectureValue, interfaceValue })
+            informationToolTip.SetToolTip(value, value.Text);
     }
 
     private void SetAchievementControlsEnabled(bool enabled)
@@ -577,44 +807,49 @@ internal sealed class ClaimerForm : Form
 
     private void SetAchievementChecks(Func<AchievementItem, bool> shouldCheck)
     {
-        for (int index = 0; index < achievementList.Items.Count; index++)
-            achievementList.SetItemChecked(index, shouldCheck((AchievementItem)achievementList.Items[index]));
-        BeginInvoke(new Action(UpdateClaimButtonState));
+        if (workerProcess != null) return;
+        achievementList.SetChecks(shouldCheck);
+        UpdateClaimButtonState();
     }
 
     private void UpdateClaimButtonState()
     {
-        bool ready = detectedGame != null && workerProcess == null && achievementList.CheckedItems.Count > 0;
+        bool ready = detectedGame != null && workerProcess == null && achievementList.CheckedItems.Count() > 0;
         claimButton.Enabled = ready;
         UpdateSelectionSummary();
     }
 
     private void RefreshClaimButtonStyle()
     {
-        claimButton.BackColor = claimButton.Enabled ? UiTheme.Orange : UiTheme.Disabled;
-        claimButton.ForeColor = claimButton.Enabled ? Color.White : UiTheme.MutedText;
+        claimButton.BackColor = claimButton.Enabled ? UiTheme.Primary : UiTheme.Disabled;
+        claimButton.ForeColor = claimButton.Enabled ? UiTheme.Canvas : UiTheme.MutedText;
     }
 
     private void UpdateSelectionSummary()
     {
         int total = achievementList.Items.Count;
-        int selected = achievementList.CheckedItems.Count;
-        achievementTitleLabel.Text = English
-            ? "Achievements — selected " + selected + "/" + total
-            : "Achievement — đã chọn " + selected + "/" + total;
+        int unlocked = achievementList.Items.Count(item => item.Achieved);
+        int selected = achievementList.CheckedItems.Count();
+        HashSet<AchievementItem> visible = new HashSet<AchievementItem>(achievementList.Rows.Cast<DataGridViewRow>().Select(row => (AchievementItem)row.Tag));
+        int hidden = achievementList.CheckedItems.Count(item => !visible.Contains(item));
+        metricValues[0].Text = total.ToString();
+        metricValues[1].Text = unlocked.ToString();
+        metricValues[2].Text = (total - unlocked).ToString();
+        selectedCountLabel.Text = selected + L(" đã chọn", " selected") + (hidden > 0 ? " (" + hidden + L(" ẩn)", " hidden)") : string.Empty);
+        confirmationHintLabel.Text = L("Chỉ thay đổi sau khi xác nhận", "Nothing changes until confirmed");
+        visibleCountLabel.Text = achievementList.VisibleCount + "/" + total + L(" mục", " shown");
+        emptyLabel.Visible = achievementList.VisibleCount == 0;
+        emptyLabel.Text = statusKey == "scanning" ? L("Đang đọc danh sách achievement...\nThao tác quét không claim achievement.", "Reading achievements...\nScanning does not claim achievements.")
+            : total > 0 ? L("Không có kết quả phù hợp.\nThử từ khóa hoặc bộ lọc khác.", "No matching achievements.\nTry another search or filter.")
+            : statusKey == "failed" ? L("Chưa tải được achievement.\nMở nhật ký để xem chi tiết và thử quét lại.", "Achievements could not be loaded.\nOpen the activity log for details, then scan again.")
+            : L("Bắt đầu với một game Steam\nChọn thư mục và quét để xem achievement.", "Start with a Steam game\nChoose its folder and scan to see achievements.");
     }
 
     private void UpdateAchievementDescription()
     {
-        AchievementItem item = achievementList.SelectedItem as AchievementItem;
-        if (item == null)
-        {
-            achievementDescriptionLabel.Text = L("Chọn một dòng để xem mô tả. Tick chỉ đánh dấu; chưa có gì được gửi lên Steam.", "Select a row to view its description. Checking a box only selects it; nothing is sent to Steam yet.");
-            return;
-        }
-        achievementDescriptionLabel.Text = string.IsNullOrWhiteSpace(item.Description)
-            ? L("Không có mô tả. API ID: ", "No description. API ID: ") + item.Id
-            : item.Description;
+        AchievementItem item = achievementList.SelectedItem;
+        achievementDescriptionLabel.Text = item == null ? L("Chọn một dòng để xem API ID và mô tả đầy đủ.", "Select a row to inspect its API ID and full description.") : "API ID: " + item.Id;
+        informationToolTip.SetToolTip(achievementDescriptionLabel, item == null ? achievementDescriptionLabel.Text : item.Id + Environment.NewLine + item.Description);
     }
 
     private AchievementItem ParseAchievement(string line)
@@ -668,21 +903,10 @@ internal sealed class ClaimerForm : Form
             return;
         }
 
-        DialogResult answer = MessageBox.Show(
-            "Game: " + detectedGame.Name + "\nAppID: " + detectedGame.AppId
-            + L("\nĐã chọn: ", "\nSelected: ") + selected.Count + "/" + achievementList.Items.Count
-            + L(
-                "\n\nApp chỉ đặt những achievement đang được tick."
-                + "\nHãy đóng game trước khi tiếp tục. Thao tác này ảnh hưởng hồ sơ Steam và có thể không hoàn tác đầy đủ."
-                + "\n\nTiếp tục?",
-                "\n\nThe app will set only the checked achievements."
-                + "\nClose the game before continuing. This changes your Steam profile and may not be fully reversible."
-                + "\n\nContinue?"),
-            L("Xác nhận claim achievement", "Confirm achievement claim"),
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Warning);
-        if (answer != DialogResult.Yes)
-            return;
+        using (ClaimConfirmationDialog confirmation = new ClaimConfirmationDialog(detectedGame, selected.Count, achievementList.Items.Count, English))
+        {
+            if (confirmation.ShowDialog(this) != DialogResult.OK) return;
+        }
 
         try
         {
@@ -694,6 +918,7 @@ internal sealed class ClaimerForm : Form
         catch (Exception error)
         {
             AppendLog(L("LỖI KHỞI CHẠY WORKER: ", "WORKER START ERROR: ") + error.Message);
+            UpdateStatus("failed");
             progress.Style = ProgressBarStyle.Blocks;
             CleanupWorker();
             UpdateClaimButtonState();
@@ -712,8 +937,9 @@ internal sealed class ClaimerForm : Form
                 AchievementItem item = ParseAchievement(e.Data);
                 BeginInvoke(new Action(delegate
                 {
-                    achievementList.Items.Add(item, false);
+                    achievementList.AddItem(item);
                     UpdateSelectionSummary();
+                    QueueVisibleArtwork();
                 }));
             }
             catch (Exception error)
@@ -739,6 +965,8 @@ internal sealed class ClaimerForm : Form
             completedProcess.Dispose();
             workerProcess = null;
             workerOperation = null;
+            SetBusy(false);
+            UpdateStatus(exitCode == 0 ? "complete" : "failed");
             CleanupWorker();
 
             if (completedOperation == "list")
@@ -746,6 +974,7 @@ internal sealed class ClaimerForm : Form
                 bool loaded = exitCode == 0 && achievementList.Items.Count > 0;
                 SetAchievementControlsEnabled(loaded);
                 UpdateClaimButtonState();
+                UpdateStatus(loaded ? "complete" : "failed");
                 AppendLog(loaded
                     ? L("Đã tải ", "Loaded ") + achievementList.Items.Count + L(" achievement. Mặc định chưa chọn mục nào.", " achievements. Nothing is selected by default.")
                     : L("Không tải được danh sách achievement. Xem log phía trên.", "Could not load the achievement list. Check the log above."));
@@ -892,9 +1121,23 @@ internal sealed class ClaimerForm : Form
         logBox.ScrollToCaret();
     }
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        WindowTheme.Apply(this);
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        ClearArtwork();
+        if (brandLogo.Image != null) brandLogo.Image.Dispose();
+        informationToolTip.Dispose();
+        base.OnFormClosed(e);
+    }
+
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        if (workerProcess != null && !workerProcess.HasExited)
+        if (workerProcess != null)
         {
             MessageBox.Show(
                 L("Worker đang tải hoặc claim achievement. Hãy chờ hoàn tất trước khi đóng app.", "The worker is loading or claiming achievements. Wait for it to finish before closing the app."),

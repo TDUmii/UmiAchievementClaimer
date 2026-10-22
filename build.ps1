@@ -58,6 +58,7 @@ $win32Icon = '/win32icon:' + $icon
     /reference:System.Windows.Forms.dll `
     /reference:System.Drawing.dll `
     /reference:System.Core.dll `
+    /reference:System.Web.Extensions.dll `
     /reference:System.IO.Compression.dll `
     /reference:System.IO.Compression.FileSystem.dll `
     /out:$application `
@@ -71,5 +72,7 @@ if ($LASTEXITCODE -ne 0) { throw "Application compilation failed with exit code 
 Copy-Item -LiteralPath $application -Destination $packageApplication -Force
 
 $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $packageApplication
+$checksumPath = Join-Path $projectRoot 'SHA256SUMS.txt'
+[IO.File]::WriteAllText($checksumPath, $hash.Hash + '  UmiAchievementClaimer.exe' + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
 Write-Host "Build complete: $packageApplication"
 Write-Host "SHA-256: $($hash.Hash)"

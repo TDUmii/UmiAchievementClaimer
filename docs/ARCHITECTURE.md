@@ -35,3 +35,19 @@ The worker has explicit modes:
 The application starts with zero checked achievements. Selection changes are local UI state until the user presses the claim button and confirms the exact selected count.
 
 After `StoreStats`, selected mode reloads current stats and verifies every requested achievement before reporting success.
+
+## Steam Midnight UI
+
+`AchievementGrid` retains the canonical achievement collection separately from its visible rows. Checked model objects remain selected when search or state filters hide them. The Claim footer reports all selected objects and the hidden subset; the selection file serializes only the explicitly confirmed models' API IDs.
+
+Bulk selection changes only visible rows. Clear all clears the full selection. Filtering is case-insensitive across name, description and API ID, and never changes checked state.
+
+`ClaimConfirmationDialog` is a presentation-only modal. It shows game/AppID/count and the profile-change warning, returning OK only from its explicit Claim button. Enter and Escape default to Cancel. The existing worker launch remains in `ClaimerForm` after confirmation.
+
+The UI disables all game-context and selection controls while a worker is active. Detection rejects attempts to switch game during a worker operation, and close protection remains active until the UI-thread exit callback has finished.
+
+`SteamArtwork` is separate from the Steam worker. It reads public store/community metadata and downloads cover/icon images from official Steam CDN hosts. The form requests icons only for displayed rows, caches them for the current game and discards stale results after a game change. Artwork failures keep the built-in placeholder and never prevent the normal achievement workflow.
+
+`WindowTheme` uses the Windows DWM API to request an immersive dark native frame and explicit black border/caption colors. Windows 11 supports the explicit colors; older builds can fall back without changing the standard system buttons or resize behavior.
+
+`tests/run-ui.ps1` compiles a separate STA regression harness against the built application. It uses reflection to seed synthetic data and test native UI state without invoking detection, launching workers or claiming real achievements. Its `DrawToBitmap` captures are render checks, not proof of real Steam integration or a hardware DPI session.
