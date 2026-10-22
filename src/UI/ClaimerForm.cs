@@ -20,6 +20,9 @@ internal sealed class ClaimerForm : Form
     private readonly Panel headerPanel = new Panel();
     private readonly TableLayoutPanel pageLayout = new TableLayoutPanel();
     private readonly Panel gameCard = new Panel();
+    private readonly Panel pathInputFrame = new Panel();
+    private readonly Panel searchHost = new Panel();
+    private readonly Panel achievementListHost = new Panel();
     private readonly CardPanel informationCard = new CardPanel();
     private readonly CardPanel achievementCard = new CardPanel();
     private readonly CardPanel logCard = new CardPanel();
@@ -28,6 +31,7 @@ internal sealed class ClaimerForm : Form
     private readonly Label subtitleLabel = new Label();
     private readonly Label steamStatusLabel = new Label();
     private readonly Label gameFolderTitleLabel = new Label();
+    private readonly Label pathCueLabel = new Label();
     private readonly Label detectionTitleLabel = new Label();
     private readonly Label detectionStatusLabel = new Label();
     private readonly PictureBox gameCover = new PictureBox();
@@ -66,7 +70,8 @@ internal sealed class ClaimerForm : Form
     private readonly Button detailsButton = new UmiButton();
     private readonly Panel technicalPanel = new Panel();
     private readonly ProgressBar progress = new ProgressBar();
-    private readonly ComboBox languageBox = new ComboBox();
+    private readonly Button languageToggleButton = new UmiButton();
+    private readonly Button themeButton = new UmiButton();
     private readonly ToolTip informationToolTip = new ToolTip();
     private DetectedGame detectedGame;
     private Process workerProcess;
@@ -83,7 +88,8 @@ internal sealed class ClaimerForm : Form
     private readonly Dictionary<string, Image> achievementImages = new Dictionary<string, Image>(StringComparer.Ordinal);
     private readonly HashSet<string> pendingArtwork = new HashSet<string>(StringComparer.Ordinal);
     private int artworkGeneration;
-    private bool English { get { return languageBox.SelectedIndex == 0; } }
+    private bool english = true;
+    private bool English { get { return english; } }
 
     public ClaimerForm()
     {
@@ -103,7 +109,12 @@ internal sealed class ClaimerForm : Form
         Controls.Add(pageLayout);
         Controls.Add(headerPanel);
         ApplyLanguage();
-        languageBox.SelectedIndexChanged += delegate { ApplyLanguage(); };
+        languageToggleButton.Click += delegate { english = !english; ApplyLanguage(); };
+        themeButton.Click += delegate
+        {
+            using (ThemePickerDialog dialog = new ThemePickerDialog()) dialog.ShowDialog(this);
+        };
+        UiTheme.Changed += ThemeChanged;
         AppendLog(L("Sẵn sàng. Hãy chọn thư mục cài game Steam.", "Ready. Select a Steam game installation folder."));
     }
 
@@ -117,38 +128,41 @@ internal sealed class ClaimerForm : Form
         brandLogo.Size = new Size(56, 56);
         brandLogo.SizeMode = PictureBoxSizeMode.Zoom;
         brandLogo.Image = LoadBrandLogo();
-        titleLabel.Font = UiTheme.Font(17F, FontStyle.Bold);
+        titleLabel.Font = UiTheme.DisplayFont(18F, FontStyle.Bold);
         titleLabel.AutoSize = true;
-        titleLabel.Location = new Point(96, 14);
-        subtitleLabel.Font = UiTheme.Font(9F);
-        subtitleLabel.ForeColor = UiTheme.MutedText;
-        subtitleLabel.AutoSize = true;
-        subtitleLabel.Location = new Point(98, 49);
-        languageBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        languageBox.Items.AddRange(new object[] { "English", "Tiếng Việt" });
-        languageBox.SelectedIndex = 0;
-        languageBox.FlatStyle = FlatStyle.Flat;
-        languageBox.DrawMode = DrawMode.OwnerDrawFixed;
-        languageBox.BackColor = UiTheme.Surface;
-        languageBox.ForeColor = UiTheme.Text;
-        languageBox.DrawItem += delegate(object sender, DrawItemEventArgs e)
-        {
-            using (SolidBrush brush = new SolidBrush((e.State & DrawItemState.Selected) != 0 ? UiTheme.Border : UiTheme.Surface))
-                e.Graphics.FillRectangle(brush, e.Bounds);
-            if (e.Index >= 0)
-                TextRenderer.DrawText(e.Graphics, languageBox.Items[e.Index].ToString(), languageBox.Font, e.Bounds, UiTheme.Text,
-                    TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
-            e.DrawFocusRectangle();
-        };
-        languageBox.Dock = DockStyle.Top;
-        languageBox.AccessibleName = "Language / Ngôn ngữ";
-        Panel languageHost = new Panel { Dock = DockStyle.Right, Width = 124, Padding = new Padding(0, 17, 0, 0) };
-        languageHost.Controls.Add(languageBox);
-        steamStatusLabel.Dock = DockStyle.Right;
-        steamStatusLabel.Width = 170;
+        titleLabel.Location = new Point(96, 27);
+        subtitleLabel.Visible = false;
+        languageToggleButton.Text = "EN";
+        languageToggleButton.AccessibleName = "Language / Ngôn ngữ";
+        languageToggleButton.Width = 44;
+        languageToggleButton.Height = 32;
+        ConfigureButton(languageToggleButton, UmiButtonStyle.Ghost);
+        languageToggleButton.Padding = new Padding(2, 0, 2, 0);
+        themeButton.Text = "THEME";
+        themeButton.AccessibleName = "Choose theme";
+        themeButton.Width = 72;
+        themeButton.Height = 32;
+        ConfigureButton(themeButton, UmiButtonStyle.Ghost);
+        themeButton.Padding = new Padding(3, 0, 3, 0);
+        steamStatusLabel.Dock = DockStyle.Fill;
         steamStatusLabel.TextAlign = ContentAlignment.MiddleCenter;
-        steamStatusLabel.Font = UiTheme.Font(9F);
-        headerPanel.Controls.AddRange(new Control[] { brandLogo, titleLabel, subtitleLabel, steamStatusLabel, languageHost });
+        steamStatusLabel.Font = UiTheme.DisplayFont(8.5F, FontStyle.Bold);
+        FlowLayoutPanel actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Right,
+            Width = 236,
+            Height = 48,
+            FlowDirection = FlowDirection.RightToLeft,
+            WrapContents = false,
+            Padding = new Padding(0, 8, 0, 0),
+            Margin = new Padding(0)
+        };
+        actions.Controls.Add(languageToggleButton);
+        actions.Controls.Add(themeButton);
+        Panel steamStatusHost = new Panel { Width = 108, Height = 32, Margin = new Padding(0, 0, 6, 0) };
+        steamStatusHost.Controls.Add(steamStatusLabel);
+        actions.Controls.Add(steamStatusHost);
+        headerPanel.Controls.AddRange(new Control[] { brandLogo, titleLabel, subtitleLabel, actions });
         headerPanel.Paint += delegate(object sender, PaintEventArgs e)
         {
             using (Pen pen = new Pen(UiTheme.Border))
@@ -186,21 +200,36 @@ internal sealed class ClaimerForm : Form
     {
         gameCard.Dock = DockStyle.Fill;
         gameCard.Margin = new Padding(0);
-        gameFolderTitleLabel.Dock = DockStyle.Top;
-        gameFolderTitleLabel.Height = 22;
-        gameFolderTitleLabel.ForeColor = UiTheme.MutedText;
         TableLayoutPanel pathLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Margin = new Padding(0) };
         pathLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118F));
         pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80F));
-        Panel input = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.Canvas, Padding = new Padding(10, 8, 8, 0), Margin = new Padding(0, 0, 8, 0) };
+        Panel input = pathInputFrame;
+        input.Dock = DockStyle.Fill;
+        input.BackColor = UiTheme.Border;
+        input.Padding = new Padding(1);
+        input.Margin = new Padding(0, 0, 8, 0);
         pathBox.Dock = DockStyle.Fill;
         pathBox.BorderStyle = BorderStyle.None;
         pathBox.BackColor = UiTheme.Canvas;
         pathBox.ForeColor = UiTheme.Text;
+        pathBox.Font = UiTheme.MonoFont(8.7F);
+        pathBox.Padding = new Padding(10, 5, 8, 0);
+        pathBox.Multiline = true;
+        pathBox.WordWrap = false;
+        pathBox.ScrollBars = ScrollBars.None;
         pathBox.KeyDown += delegate(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Enter && scanButton.Enabled) { e.SuppressKeyPress = true; DetectSelectedGame(); } };
         input.Controls.Add(pathBox);
+        pathCueLabel.Dock = DockStyle.Fill;
+        pathCueLabel.Enabled = false;
+        pathCueLabel.Padding = new Padding(10, 6, 8, 0);
+        pathCueLabel.ForeColor = UiTheme.MutedText;
+        pathCueLabel.Font = UiTheme.DisplayFont(8F, FontStyle.Bold);
+        pathCueLabel.TextAlign = ContentAlignment.MiddleLeft;
+        pathCueLabel.Visible = true;
+        input.Controls.Add(pathCueLabel);
+        pathBox.TextChanged += delegate { pathCueLabel.Visible = string.IsNullOrWhiteSpace(pathBox.Text); };
         ConfigureButton(browseButton, UmiButtonStyle.Secondary);
         browseButton.Dock = DockStyle.Fill;
         browseButton.Margin = new Padding(0, 0, 6, 0);
@@ -213,7 +242,7 @@ internal sealed class ClaimerForm : Form
         pathLayout.Controls.Add(browseButton, 1, 0);
         pathLayout.Controls.Add(scanButton, 2, 0);
         gameCard.Controls.Add(pathLayout);
-        gameCard.Controls.Add(gameFolderTitleLabel);
+        gameFolderTitleLabel.Visible = false;
     }
 
     private void BuildInformationCard()
@@ -223,9 +252,9 @@ internal sealed class ClaimerForm : Form
         informationCard.Padding = new Padding(18);
         TableLayoutPanel summary = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 9, Margin = new Padding(0) };
         summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        foreach (float height in new float[] { 112, 24, 68, 28, 64, 36, 0 }) summary.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+        foreach (float height in new float[] { 112, 22, 68, 24, 64, 36, 0 }) summary.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
         summary.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        summary.RowStyles.Add(new RowStyle(SizeType.Absolute, 56F));
+        summary.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
         Panel coverHost = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 12), BackColor = UiTheme.SurfaceMuted };
         gameCover.Dock = DockStyle.Fill;
         gameCover.SizeMode = PictureBoxSizeMode.Zoom;
@@ -238,12 +267,14 @@ internal sealed class ClaimerForm : Form
         summary.Controls.Add(coverHost, 0, 0);
         detectionTitleLabel.Dock = DockStyle.Fill;
         detectionTitleLabel.ForeColor = UiTheme.Primary;
-        detectionTitleLabel.Font = UiTheme.Font(10F, FontStyle.Bold);
+        detectionTitleLabel.Font = UiTheme.DisplayFont(8.5F, FontStyle.Bold);
         gameValue.Dock = DockStyle.Fill;
-        gameValue.Font = UiTheme.Font(17F, FontStyle.Bold);
+        gameValue.Font = UiTheme.DisplayFont(16F, FontStyle.Bold);
         gameValue.AutoEllipsis = true;
         detectionStatusLabel.Dock = DockStyle.Fill;
         detectionStatusLabel.ForeColor = UiTheme.MutedText;
+        detectionStatusLabel.Font = UiTheme.DisplayFont(8.5F, FontStyle.Bold);
+        detectionStatusLabel.TextAlign = ContentAlignment.MiddleLeft;
         summary.Controls.Add(detectionTitleLabel, 0, 1);
         summary.Controls.Add(gameValue, 0, 2);
         summary.Controls.Add(detectionStatusLabel, 0, 3);
@@ -280,9 +311,10 @@ internal sealed class ClaimerForm : Form
         summary.Controls.Add(detailsButton, 0, 5);
         summary.Controls.Add(technicalPanel, 0, 6);
         safeModeLabel.Dock = DockStyle.Fill;
-        safeModeLabel.Font = UiTheme.Font(9F);
+        safeModeLabel.Font = UiTheme.DisplayFont(8.5F, FontStyle.Bold);
         safeModeLabel.ForeColor = UiTheme.Success;
-        safeModeLabel.TextAlign = ContentAlignment.BottomLeft;
+        safeModeLabel.TextAlign = ContentAlignment.MiddleLeft;
+        safeModeLabel.Padding = new Padding(0, 0, 0, 2);
         summary.Controls.Add(safeModeLabel, 0, 8);
         informationCard.Controls.Add(summary);
     }
@@ -293,17 +325,18 @@ internal sealed class ClaimerForm : Form
         achievementCard.Padding = new Padding(20, 16, 20, 12);
         TableLayoutPanel workspace = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 8, Margin = new Padding(0) };
         workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        foreach (float height in new float[] { 50, 62, 64, 48, 34 }) workspace.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+        foreach (float height in new float[] { 50, 44, 64, 48, 34 }) workspace.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
         workspace.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         workspace.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
         workspace.RowStyles.Add(new RowStyle(SizeType.Absolute, 68F));
         Panel heading = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0) };
         achievementTitleLabel.Dock = DockStyle.Top;
         achievementTitleLabel.Height = 29;
-        achievementTitleLabel.Font = UiTheme.Font(18F, FontStyle.Bold);
+        achievementTitleLabel.Font = UiTheme.DisplayFont(18F, FontStyle.Bold);
         achievementHintLabel.Dock = DockStyle.Bottom;
         achievementHintLabel.Height = 20;
         achievementHintLabel.ForeColor = UiTheme.MutedText;
+        achievementHintLabel.Font = UiTheme.DisplayFont(8F, FontStyle.Bold);
         heading.Controls.Add(achievementTitleLabel);
         heading.Controls.Add(achievementHintLabel);
         workspace.Controls.Add(heading, 0, 0);
@@ -316,7 +349,7 @@ internal sealed class ClaimerForm : Form
             metrics.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
             Panel metric = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0) };
             metricCaptions[i] = new Label { Dock = DockStyle.Top, Height = 18, ForeColor = UiTheme.MutedText };
-            metricValues[i] = new Label { Dock = DockStyle.Fill, Font = UiTheme.Font(19F, FontStyle.Bold), ForeColor = i == 1 ? UiTheme.Success : i == 2 ? UiTheme.Warning : UiTheme.Text };
+            metricValues[i] = new Label { Dock = DockStyle.Fill, Font = UiTheme.DisplayFont(20F, FontStyle.Bold), ForeColor = i == 1 ? UiTheme.Success : i == 2 ? UiTheme.Warning : UiTheme.Text };
             metric.Controls.Add(metricValues[i]);
             metric.Controls.Add(metricCaptions[i]);
             metrics.Controls.Add(metric, i, 0);
@@ -334,10 +367,14 @@ internal sealed class ClaimerForm : Form
             filterButtons[i].Click += delegate { currentFilter = filter; ApplyAchievementFilter(); };
             filters.Controls.Add(filterButtons[i], i, 0);
         }
-        Panel searchHost = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.Canvas, Padding = new Padding(10, 8, 8, 0), Margin = new Padding(10, 0, 0, 0) };
+        searchHost.Dock = DockStyle.Fill;
+        searchHost.BackColor = UiTheme.Canvas;
+        searchHost.Padding = new Padding(10, 8, 8, 0);
+        searchHost.Margin = new Padding(10, 0, 0, 0);
         searchHintLabel.Dock = DockStyle.Left;
-        searchHintLabel.Width = 52;
+        searchHintLabel.Width = 58;
         searchHintLabel.ForeColor = UiTheme.MutedText;
+        searchHintLabel.Font = UiTheme.DisplayFont(8F, FontStyle.Bold);
         searchBox.Dock = DockStyle.Fill;
         searchBox.BorderStyle = BorderStyle.None;
         searchBox.BackColor = UiTheme.Canvas;
@@ -369,7 +406,10 @@ internal sealed class ClaimerForm : Form
         visibleCountLabel.Font = UiTheme.Font(8F);
         bulk.Controls.Add(visibleCountLabel, 3, 0);
         workspace.Controls.Add(bulk, 0, 4);
-        Panel listHost = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0), BackColor = UiTheme.Surface };
+        Panel listHost = achievementListHost;
+        listHost.Dock = DockStyle.Fill;
+        listHost.Margin = new Padding(0);
+        listHost.BackColor = UiTheme.Surface;
         achievementList.Dock = DockStyle.Fill;
         achievementList.ArtworkProvider = GetAchievementImage;
         achievementList.ChecksChanged += delegate { UpdateClaimButtonState(); };
@@ -398,7 +438,7 @@ internal sealed class ClaimerForm : Form
         Panel selection = new Panel { Dock = DockStyle.Fill };
         selectedCountLabel.Dock = DockStyle.Top;
         selectedCountLabel.Height = 24;
-        selectedCountLabel.Font = UiTheme.Font(11F, FontStyle.Bold);
+        selectedCountLabel.Font = UiTheme.DisplayFont(11F, FontStyle.Bold);
         confirmationHintLabel.Dock = DockStyle.Fill;
         confirmationHintLabel.ForeColor = UiTheme.MutedText;
         confirmationHintLabel.Font = UiTheme.Font(8.5F);
@@ -480,20 +520,22 @@ internal sealed class ClaimerForm : Form
     {
         Text = "Umi Achievement Claimer";
         titleLabel.Text = "Umi Achievement Claimer";
-        subtitleLabel.Text = L("Steam Midnight  /  Công cụ achievement Steam", "Steam Midnight  /  Steam achievement manager");
+        subtitleLabel.Text = string.Empty;
+        subtitleLabel.Visible = false;
         gameFolderTitleLabel.Text = L("Thư mục cài game Steam", "Steam game installation folder");
+        pathCueLabel.Text = L("CHỌN THƯ MỤC GAME", "SELECT GAME FOLDER");
         browseButton.Text = L("Chọn thư mục", "Browse folder");
         scanButton.Text = L("Quét", "Scan");
         pathBox.AccessibleName = gameFolderTitleLabel.Text;
-        detectionTitleLabel.Text = L("Game hiện tại", "Current game");
+        detectionTitleLabel.Text = L("GAME", "GAME");
         captionLabels[1].Text = "STEAM APP ID";
         captionLabels[2].Text = "STEAM API";
         captionLabels[3].Text = L("KIẾN TRÚC", "ARCHITECTURE");
         captionLabels[4].Text = "USER STATS";
-        safeModeLabel.Text = L("Quét chỉ đọc.\nChỉ claim khi bạn xác nhận.", "Read-only scan.\nClaims require confirmation.");
+        safeModeLabel.Text = L("CHỈ ĐỌC  /  CLAIM CẦN XÁC NHẬN", "READ-ONLY  /  CLAIM REQUIRES CONFIRMATION");
         coverFallback.Text = detectedGame == null ? L("Ảnh game sẽ hiện ở đây", "Game artwork appears here") : L("Không có ảnh game", "Game artwork unavailable");
         achievementTitleLabel.Text = "Achievements";
-        achievementHintLabel.Text = L("Xem trạng thái và chỉ chọn những mục bạn muốn claim.", "Review status and choose only what you want to claim.");
+        achievementHintLabel.Text = L("XEM TRẠNG THÁI  /  CHỈ CHỌN MỤC MUỐN CLAIM", "REVIEW STATUS  /  SELECT ONLY WHAT YOU WANT TO CLAIM");
         selectAllButton.Text = L("Chọn đang hiện", "Select visible");
         selectLockedButton.Text = L("Chọn chưa mở", "Select locked");
         clearSelectionButton.Text = L("Bỏ chọn hết", "Clear all");
@@ -505,9 +547,13 @@ internal sealed class ClaimerForm : Form
         filterButtons[0].Text = L("Tất cả", "All");
         filterButtons[1].Text = L("Chưa mở", "Locked");
         filterButtons[2].Text = L("Đã mở", "Unlocked");
-        searchHintLabel.Text = L("Tìm", "Search");
+        searchHintLabel.Text = L("TÌM", "SEARCH");
         searchBox.AccessibleName = L("Tìm tên, mô tả hoặc API ID", "Search name, description or API ID");
         informationToolTip.SetToolTip(searchBox, searchBox.AccessibleName);
+        languageToggleButton.Text = English ? "EN" : "VI";
+        languageToggleButton.AccessibleDescription = English ? "Switch to Vietnamese" : "Chuyển sang English";
+        themeButton.Text = "THEME";
+        informationToolTip.SetToolTip(themeButton, L("Đổi theme giao diện", "Change interface theme") + "  /  " + UiTheme.ActiveName);
         informationToolTip.SetToolTip(selectAllButton, L("Chọn tất cả mục đang hiện. Mục ẩn giữ nguyên.", "Select all visible results. Hidden selections are kept."));
         informationToolTip.SetToolTip(selectLockedButton, L("Chỉ chọn mục chưa mở trong kết quả đang hiện. Mục ẩn giữ nguyên.", "Select locked achievements in visible results. Hidden selections are kept."));
         achievementList.English = English;
@@ -517,6 +563,80 @@ internal sealed class ClaimerForm : Form
         UpdateLogLabel();
         ApplyAchievementFilter();
         UpdateStatus(statusKey);
+    }
+
+    private void ThemeChanged(object sender, EventArgs e)
+    {
+        if (IsDisposed || Disposing) return;
+        if (InvokeRequired)
+        {
+            BeginInvoke(new Action(ApplyTheme));
+            return;
+        }
+        ApplyTheme();
+    }
+
+    private void ApplyTheme()
+    {
+        BackColor = UiTheme.Canvas;
+        ForeColor = UiTheme.Text;
+        headerPanel.BackColor = UiTheme.Canvas;
+        pageLayout.BackColor = UiTheme.Canvas;
+        gameCard.BackColor = UiTheme.Surface;
+        pathInputFrame.BackColor = UiTheme.Border;
+        pathBox.BackColor = UiTheme.Canvas;
+        pathBox.ForeColor = UiTheme.Text;
+        pathCueLabel.ForeColor = UiTheme.MutedText;
+        searchHost.BackColor = UiTheme.Canvas;
+        searchBox.BackColor = UiTheme.Canvas;
+        searchBox.ForeColor = UiTheme.Text;
+        achievementListHost.BackColor = UiTheme.Surface;
+        informationCard.BackColor = UiTheme.Surface;
+        achievementCard.BackColor = UiTheme.Surface;
+        logCard.BackColor = UiTheme.Surface;
+        gameCover.BackColor = UiTheme.SurfaceMuted;
+        coverFallback.ForeColor = UiTheme.MutedText;
+        titleLabel.ForeColor = UiTheme.Text;
+        steamStatusLabel.ForeColor = statusKey == "failed" ? UiTheme.Warning : UiTheme.Success;
+        detectionTitleLabel.ForeColor = UiTheme.Primary;
+        detectionStatusLabel.ForeColor = detectedGame == null ? UiTheme.MutedText : UiTheme.Success;
+        gameValue.ForeColor = UiTheme.Text;
+        safeModeLabel.ForeColor = UiTheme.Success;
+        achievementTitleLabel.ForeColor = UiTheme.Text;
+        achievementHintLabel.ForeColor = UiTheme.MutedText;
+        achievementDescriptionLabel.ForeColor = UiTheme.MutedText;
+        searchHintLabel.ForeColor = UiTheme.MutedText;
+        visibleCountLabel.ForeColor = UiTheme.MutedText;
+        selectedCountLabel.ForeColor = UiTheme.Text;
+        confirmationHintLabel.ForeColor = UiTheme.MutedText;
+        emptyLabel.ForeColor = UiTheme.MutedText;
+        for (int i = 0; i < metricValues.Length; i++)
+            metricValues[i].ForeColor = i == 1 ? UiTheme.Success : i == 2 ? UiTheme.Warning : UiTheme.Text;
+        for (int i = 0; i < captionLabels.Length; i++)
+            if (captionLabels[i] != null) captionLabels[i].ForeColor = UiTheme.MutedText;
+
+        UiTheme.StyleButton(browseButton, UmiButtonStyle.Secondary);
+        UiTheme.StyleButton(scanButton, UmiButtonStyle.Secondary);
+        UiTheme.StyleButton(detailsButton, UmiButtonStyle.Ghost);
+        UiTheme.StyleButton(selectAllButton, UmiButtonStyle.Ghost);
+        UiTheme.StyleButton(selectLockedButton, UmiButtonStyle.Ghost);
+        UiTheme.StyleButton(clearSelectionButton, UmiButtonStyle.Ghost);
+        UiTheme.StyleButton(claimButton, UmiButtonStyle.Accent);
+        UiTheme.StyleButton(logToggleButton, UmiButtonStyle.Ghost);
+        UiTheme.StyleButton(copyLogButton, UmiButtonStyle.Ghost);
+        UiTheme.StyleButton(languageToggleButton, UmiButtonStyle.Ghost);
+        UiTheme.StyleButton(themeButton, UmiButtonStyle.Ghost);
+        foreach (Button filter in filterButtons)
+            if (filter != null) UiTheme.StyleButton(filter, UmiButtonStyle.Ghost);
+        logBox.BackColor = UiTheme.LogBackground;
+        logBox.ForeColor = UiTheme.LogText;
+        statusLabel.ForeColor = statusKey == "failed" ? UiTheme.Warning : statusKey == "scanning" || statusKey == "claiming" ? UiTheme.Cyan : UiTheme.Success;
+        achievementList.RefreshTheme();
+        ApplyAchievementFilter();
+        RefreshClaimButtonStyle();
+        UpdateStatus(statusKey);
+        UpdateLogLabel();
+        ApplyLanguage();
     }
 
     private void UpdateDetailsLabel() { detailsButton.Text = detailsExpanded ? L("Ẩn chi tiết kỹ thuật", "Hide technical details") : L("Chi tiết kỹ thuật", "View technical details"); }
@@ -562,7 +682,7 @@ internal sealed class ClaimerForm : Form
     {
         progress.Visible = busy;
         pageLayout.RowStyles[2].Height = busy ? 3F * Font.Height / 15F : 0F;
-        browseButton.Enabled = scanButton.Enabled = pathBox.Enabled = languageBox.Enabled = !busy;
+        browseButton.Enabled = scanButton.Enabled = pathBox.Enabled = languageToggleButton.Enabled = themeButton.Enabled = !busy;
         searchBox.Enabled = !busy;
         foreach (Button button in filterButtons) button.Enabled = !busy;
         SetAchievementControlsEnabled(!busy && achievementList.Items.Count > 0);
@@ -785,7 +905,7 @@ internal sealed class ClaimerForm : Form
     private void SetInformation(DetectedGame game)
     {
         gameValue.Text = game == null ? L("Chưa chọn game", "No game selected") : game.Name;
-        detectionStatusLabel.Text = game == null ? L("Chọn thư mục để bắt đầu", "Choose a folder to begin") : L("Nhận diện thành công", "Detected successfully");
+        detectionStatusLabel.Text = game == null ? L("CHƯA CÓ GAME", "NO GAME") : L("ĐÃ NHẬN DIỆN", "DETECTED");
         detectionStatusLabel.ForeColor = game == null ? UiTheme.MutedText : UiTheme.Success;
         appIdValue.Text = game == null ? "-" : game.AppId;
         dllValue.Text = game == null ? "-" : game.SteamApiPath
@@ -1129,6 +1249,7 @@ internal sealed class ClaimerForm : Form
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
+        UiTheme.Changed -= ThemeChanged;
         ClearArtwork();
         if (brandLogo.Image != null) brandLogo.Image.Dispose();
         informationToolTip.Dispose();

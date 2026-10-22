@@ -97,6 +97,19 @@ internal sealed class AchievementGrid : DataGridView
 
     public int VisibleCount { get { return Rows.Count; } }
 
+    public void RefreshTheme()
+    {
+        BackgroundColor = UiTheme.Surface;
+        GridColor = UiTheme.Border;
+        ForeColor = UiTheme.Text;
+        DefaultCellStyle.BackColor = UiTheme.Surface;
+        DefaultCellStyle.ForeColor = UiTheme.Text;
+        DefaultCellStyle.SelectionBackColor = UiTheme.SurfaceMuted;
+        DefaultCellStyle.SelectionForeColor = UiTheme.Text;
+        Font = UiTheme.Font(9.5F);
+        Invalidate();
+    }
+
     public bool English
     {
         get { return english; }
@@ -275,7 +288,7 @@ internal sealed class AchievementGrid : DataGridView
         base.OnFontChanged(e);
         if (titleFont != null)
             titleFont.Dispose();
-        titleFont = new Font(Font, FontStyle.Bold);
+        titleFont = UiTheme.DisplayFont(Font.SizeInPoints, FontStyle.Bold);
         if (Columns.Count == 4)
             ApplyMetrics();
     }
@@ -323,7 +336,7 @@ internal sealed class AchievementGrid : DataGridView
             using (Pen pen = new Pen(isChecked ? UiTheme.Primary : UiTheme.MutedText))
                 e.Graphics.DrawRectangle(pen, box);
             if (isChecked)
-                using (Pen pen = new Pen(UiTheme.Canvas, 2F))
+                using (Pen pen = new Pen(UiTheme.PrimaryText, 2F))
                 {
                     e.Graphics.DrawLines(pen, new Point[] {
                         new Point(box.Left + side / 4, box.Top + side / 2),

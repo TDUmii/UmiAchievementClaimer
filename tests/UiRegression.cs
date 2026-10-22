@@ -244,7 +244,14 @@ internal static class UiRegression
                 CheckWindowTheme(form, "main window");
                 object grid = Field(form, "achievementList");
                 DataGridView table = (DataGridView)grid;
-                ComboBox language = (ComboBox)Field(form, "languageBox");
+                Button language = (Button)Field(form, "languageToggleButton");
+                Type themeType = application.GetType("UmiAchievementClaimer.UiTheme");
+                themeType.GetMethod("ApplyPreset", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { "Carbon" });
+                Check((string)themeType.GetProperty("ActiveName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).GetValue(null, null) == "Carbon"
+                    && Control(form, "themeButton").Enabled, "theme preset changes while the client is idle");
+                themeType.GetMethod("ApplyCustomAccent", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { Color.FromArgb(255, 88, 190, 224) });
+                Check((string)themeType.GetProperty("ActiveName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).GetValue(null, null) == "Custom", "custom accent theme is accepted");
+                themeType.GetMethod("ApplyPreset", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { "Steam Midnight" });
                 TextBox search = (TextBox)Field(form, "searchBox");
                 Button[] filters = (Button[])Field(form, "filterButtons");
                 Check(!Control(form, "claimButton").Enabled && Checked(grid).Length == 0, "initial Claim disabled and nothing selected");
@@ -302,7 +309,7 @@ internal static class UiRegression
                 Check(Field(form, "workerProcess") == null, "UI and serialization checks never start a worker");
 
                 Call(form, "SetBusy", true);
-                string[] busyControls = { "browseButton", "scanButton", "pathBox", "languageBox", "searchBox", "achievementList", "selectAllButton", "selectLockedButton", "clearSelectionButton", "claimButton" };
+                string[] busyControls = { "browseButton", "scanButton", "pathBox", "languageToggleButton", "themeButton", "searchBox", "achievementList", "selectAllButton", "selectLockedButton", "clearSelectionButton", "claimButton" };
                 Check(busyControls.All(name => !Control(form, name).Enabled) && filters.All(button => !button.Enabled), "busy state locks game, language, filters and selection");
                 Call(form, "SetBusy", false);
                 Check(busyControls.All(name => Control(form, name).Enabled) && filters.All(button => button.Enabled), "idle state restores appropriate controls");
@@ -321,7 +328,7 @@ internal static class UiRegression
                 ((Button)Field(form, "logToggleButton")).PerformClick();
                 Check(!Control(form, "logBox").Visible && !(bool)Field(form, "logExpanded"), "activity log collapses");
 
-                language.SelectedIndex = 1;
+                language.PerformClick();
                 Check(Control(form, "claimButton").Text == "Claim đã chọn" && (string)table.Rows[0].Cells[3].Value == "Chưa mở", "Vietnamese controls and row status");
                 Check(Checked(grid).Length == 2, "language change preserves selection");
                 Set(game, "Name", "Trò chơi minh họa (dữ liệu giả lập) - Tên rất dài để kiểm tra hiển thị Unicode");
@@ -332,7 +339,7 @@ internal static class UiRegression
                 Check(table.Height >= table.RowTemplate.Height, "minimum size leaves at least one complete achievement row");
                 Check(SingleRowsFit(form), "minimum-size single-row layout children fit their parents");
                 Capture(form, "minimum-vi.png");
-                language.SelectedIndex = 0;
+                language.PerformClick();
                 Check(Control(form, "claimButton").Text == "Claim selected" && (string)table.Rows[0].Cells[3].Value == "Locked", "English controls and row status restored");
 
                 Type confirmationType = application.GetType("UmiAchievementClaimer.ClaimConfirmationDialog");
@@ -347,6 +354,14 @@ internal static class UiRegression
                     Capture(confirmation, "confirmation-en.png");
                     confirmation.AcceptButton.PerformClick();
                     Check(confirmation.DialogResult == DialogResult.Cancel, "default action cancels confirmation");
+                }
+
+                using (Form themeDialog = (Form)New("ThemePickerDialog"))
+                {
+                    Prepare(themeDialog);
+                    CheckWindowTheme(themeDialog, "theme picker");
+                    Check(SingleRowsFit(themeDialog), "theme picker controls fit their layout row");
+                    Capture(themeDialog, "theme-dialog.png");
                 }
 
                 form.ClientSize = new Size(1220, 840);

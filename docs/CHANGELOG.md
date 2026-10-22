@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.7.0 - 2026-10-22
+
+### Game client polish
+
+- Reworked the visual hierarchy with Bahnschrift display typography and a compact HUD-like treatment for the game title, stats, status labels and action controls.
+- Removed the header subtitle and the separate folder subtitle. The folder path, Browse and Scan controls now share one aligned row with a monospace path field and a clear empty-state cue.
+- Kept the explanatory subtitle inside the Achievements workspace, where it supports the list without adding noise to the rest of the client.
+- Replaced the language ComboBox with a compact `EN` / `VI` toggle button that keeps the current selection and filter state.
+- Added a `THEME` picker with Steam Midnight, Carbon and Arcade presets plus a custom accent ColorDialog. Theme preferences persist under `%APPDATA%\\UmiAchievementClaimer\\theme.cfg` and apply live without restarting the app.
+- Added contrast-aware primary button and checkbox marks so custom accent colors remain readable.
+
+### Validation
+
+- Built the x86 worker, x64 worker and x64 Windows EXE with the Windows .NET Framework compilers.
+- Native UI regression: `55 PASS, 0 FAIL`, including theme switching, language toggling, path alignment, the theme picker layout, minimum-size layout and artwork fixtures.
+- Live artwork smoke check: `10 PASS, 0 FAIL`.
+- No Steam achievements were claimed as part of this UI release validation.
+
 ## 1.6.0 - 2026-10-22
 
 ### Steam Midnight

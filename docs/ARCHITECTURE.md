@@ -48,6 +48,8 @@ The UI disables all game-context and selection controls while a worker is active
 
 `SteamArtwork` is separate from the Steam worker. It reads public store/community metadata and downloads cover/icon images from official Steam CDN hosts. The form requests icons only for displayed rows, caches them for the current game and discards stale results after a game change. Artwork failures keep the built-in placeholder and never prevent the normal achievement workflow.
 
+`UiTheme` owns the mutable visual tokens. It starts with Steam Midnight, can switch live to Carbon, Arcade or a custom accent through `ThemePickerDialog`, derives hover/pressed and primary-text contrast colors, and persists the choice in the user's application data directory. `ClaimerForm` and `AchievementGrid` refresh their native controls when the token set changes; no webview or external theme package is used.
+
 `WindowTheme` uses the Windows DWM API to request an immersive dark native frame and explicit black border/caption colors. Windows 11 supports the explicit colors; older builds can fall back without changing the standard system buttons or resize behavior.
 
 `tests/run-ui.ps1` compiles a separate STA regression harness against the built application. It uses reflection to seed synthetic data and test native UI state without invoking detection, launching workers or claiming real achievements. Its `DrawToBitmap` captures are render checks, not proof of real Steam integration or a hardware DPI session.

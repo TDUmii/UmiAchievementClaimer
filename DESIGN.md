@@ -1,6 +1,6 @@
 ---
 name: Umi Achievement Claimer - Steam Midnight
-description: A native Windows workspace for reviewing and explicitly selecting Steam achievements.
+description: A native Windows game client for reviewing and explicitly selecting Steam achievements.
 colors:
   canvas: "#0C1422"
   surface: "#19283B"
@@ -17,18 +17,24 @@ colors:
   primary-pressed: "#9785DE"
   secondary-hover: "#27384E"
   window-chrome: "#000000"
+theme-presets:
+  default: "Steam Midnight"
+  options: ["Steam Midnight", "Carbon", "Arcade", "Custom accent"]
 typography:
+  display:
+    fontFamily: "Bahnschrift with Segoe UI fallback"
+    fontWeight: 700
   heading:
-    fontFamily: "Segoe UI"
+    fontFamily: "Bahnschrift"
     fontSize: "18pt"
     fontWeight: 700
   title:
-    fontFamily: "Segoe UI"
-    fontSize: "17pt"
+    fontFamily: "Bahnschrift"
+    fontSize: "18pt"
     fontWeight: 700
   metric:
-    fontFamily: "Segoe UI"
-    fontSize: "19pt"
+    fontFamily: "Bahnschrift"
+    fontSize: "20pt"
     fontWeight: 700
   body:
     fontFamily: "Segoe UI"
@@ -105,9 +111,9 @@ The frontmatter is the normative palette, extracted from `src/UI/UiTheme.cs` and
 
 ## Typography
 
-Use Segoe UI for the interface and Consolas for the activity log. Values are WinForms points; do not reinterpret them as CSS pixels. Windows supplies the native caption font.
+Use Bahnschrift for display type with a Segoe UI fallback, Segoe UI for supporting copy and Consolas for the activity log and installation path. Values are WinForms points; do not reinterpret them as CSS pixels. Windows supplies the native caption font.
 
-The main workspace heading is bold (18pt); the application and game titles are bold (17pt). Metric values are bold (19pt). Body copy and buttons use 9pt, achievement rows use 9.5pt with bold names, metadata captions use 8pt, and secondary footer/detail copy uses 8.5pt. Selection summaries use bold 11pt. The confirmation dialog uses a bold 16pt heading and 10pt body.
+The main workspace heading is bold (18pt); the application title is bold (18pt), the game title is bold (16pt), and metric values are bold (20pt). Body copy and buttons use 9pt, achievement rows use 9.5pt with bold names, metadata captions use 8pt, and secondary footer/detail copy uses 8.5pt. Selection summaries use bold 11pt. The confirmation dialog uses a bold 16pt heading and 10pt body.
 
 Truncate constrained single-line text with an ellipsis and retain full names, descriptions and API IDs in tooltips. Preserve room for both English and Vietnamese labels.
 
@@ -115,9 +121,9 @@ Truncate constrained single-line text with an ellipsis and retain full names, de
 
 The default client is 1220 x 840; the minimum outer window is 1040 x 760. These are native desktop dimensions before DPI scaling, not web breakpoints. `AutoScaleMode.Dpi` and font-relative row metrics adapt the layout.
 
-An 86px header holds the logo, name, Steam status and language selector. The page uses 24px horizontal inset, 20px top inset and 18px bottom inset. A fixed 266px sidebar column includes a 16px right gap; the achievement workspace fills the remaining width. The summary card uses 18px padding; the workspace uses 20px horizontal padding.
+An 86px header holds the logo, name, Steam status, theme button and compact `EN` / `VI` toggle. There is no header subtitle. The page uses 24px horizontal inset, 20px top inset and 18px bottom inset. A fixed 266px sidebar column includes a 16px right gap; the achievement workspace fills the remaining width. The summary card uses 18px padding; the workspace uses 20px horizontal padding.
 
-The workspace orders heading, folder controls, metrics, filters/search, bulk actions, scrollable results, selected-item detail and a fixed selection footer. The footer stays outside the scrolling rows. The log spans both columns and is collapsed initially. At smaller heights its expanded area is reduced. Expanding technical details replaces the cover area in the sidebar so both regions do not compete for height.
+The workspace orders heading, the single-row folder path controls, metrics, filters/search, bulk actions, scrollable results, selected-item detail and a fixed selection footer. The footer stays outside the scrolling rows. The only explanatory subtitle is inside the Achievements heading. The log spans both columns and is collapsed initially. At smaller heights its expanded area is reduced. Expanding technical details replaces the cover area in the sidebar so both regions do not compete for height.
 
 ## Elevation & Depth
 
@@ -130,6 +136,7 @@ Cards have gently rounded corners (14px) and buttons use a tighter radius (8px).
 ## Components
 
 - **Buttons:** the primary and accent variants share lavender fill, dark text and bold 9pt labels. Secondary buttons use a muted surface with a one-pixel border; ghost controls use the card surface. Hover/pressed feedback is immediate. Disabled buttons use muted text and the disabled fill. Shared horizontal padding is 10px, with compact local overrides for filters and details.
+- **Theme controls:** the header uses a small `THEME` button and an `EN` / `VI` toggle. Theme presets are Steam Midnight, Carbon and Arcade; a custom accent picker derives hover/pressed colors and contrast-aware primary text, then persists the choice in the user's application data folder.
 - **Game summary:** the cover, current game, detection status, AppID and architecture establish context. Technical details are an explicit disclosure. Read-only scan and confirmation guidance stays at the bottom.
 - **Achievement grid:** rows pair a checkbox, state-specific artwork, bold name, secondary description and text status. Row height is at least 64px and grows with the font. Focused rows and checked items are separate states; row focus alone does not select an achievement for claiming. Space toggles the current row's checkbox.
 - **Search and filters:** borderless text fields sit on the canvas tone. All / Locked / Unlocked filters change the visible collection while retaining every checked item. Bulk actions state their scope; the footer includes hidden selected items.
@@ -143,6 +150,7 @@ Cards have gently rounded corners (14px) and buttons use a tighter radius (8px).
 - **Do** preserve text labels alongside status colors, clear focus treatment and English/Vietnamese fit.
 - **Do** review empty, long-name, hidden-selection, busy, expanded-log and minimum-window states when changing composition.
 - **Do** use `UiTheme.cs` as the runtime token source and update this document when the shared visual system changes.
+- **Do** keep display typography, compact status labels and the aligned folder control row consistent across themes.
 - **Don't** replace native caption buttons or resize behavior with fake chrome.
 - **Don't** auto-select achievements, lose hidden checks during filtering, or make confirmation the default Enter action.
 - **Don't** let artwork availability block review, selection or confirmation.

@@ -2,7 +2,7 @@
 
 Umi Achievement Claimer is a native Windows WinForms utility for reviewing Steam achievement status and claiming the achievements a user explicitly selects. It is intended for people working with games and Steam accounts they are authorized to access. No narrower audience or demographic is established.
 
-The main workflow is to choose a game installation folder, run a read-only scan, review the detected game and achievement list, select individual achievements, then confirm the game, AppID and selected count before submitting changes. The application opens in English and offers Vietnamese in the language selector.
+The main workflow is to choose a game installation folder, run a read-only scan, review the detected game and achievement list, select individual achievements, then confirm the game, AppID and selected count before submitting changes. The application opens in English and offers a compact `EN` / `VI` toggle.
 
 Product commitments:
 
@@ -12,6 +12,8 @@ Product commitments:
 - Keep the selection count and Claim action visible below the list. Claim requires an explicit confirmation; Cancel is the dialog's focused, Enter and Escape action.
 - Disable game-context and selection controls while a worker is active.
 - Keep the native Windows frame, system buttons and resize behavior. The chosen visual direction is Steam Midnight, with a black caption and border requested through DWM and a compatible dark-frame fallback.
+- Keep a game-client visual hierarchy: Bahnschrift display type for titles, stats and action labels, monospace treatment for the installation path, and the explanatory subtitle limited to the Achievements workspace.
+- Let the user choose Steam Midnight, Carbon, Arcade or a custom accent from the header `THEME` control. Apply the selected theme live and persist it for the next launch.
 - Show real game cover artwork and state-specific achievement icons when available. Public Steam metadata and CDN downloads are optional; failed artwork leaves a fallback and does not block the core workflow. Artwork requests do not upload installation paths or Steam account details.
 - Keep diagnostics available through collapsible technical details and an activity log with Copy log.
 
