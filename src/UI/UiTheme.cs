@@ -257,4 +257,32 @@ internal sealed class UmiButton : Button
             Enabled ? ForeColor : UiTheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
     }
 }
+
+internal sealed class UmiToolStripRenderer : ToolStripProfessionalRenderer
+{
+    protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+    {
+        using (SolidBrush brush = new SolidBrush(UiTheme.Surface))
+            e.Graphics.FillRectangle(brush, e.AffectedBounds);
+    }
+
+    protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+    {
+        using (Pen pen = new Pen(UiTheme.Border))
+            e.Graphics.DrawRectangle(pen, new Rectangle(0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1));
+    }
+
+    protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+    {
+        Color fill = e.Item.Selected ? UiTheme.Border : UiTheme.Surface;
+        using (SolidBrush brush = new SolidBrush(fill))
+            e.Graphics.FillRectangle(brush, new Rectangle(Point.Empty, e.Item.Size));
+    }
+
+    protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+    {
+        e.TextColor = e.Item.Enabled ? UiTheme.Text : UiTheme.MutedText;
+        base.OnRenderItemText(e);
+    }
+}
 }

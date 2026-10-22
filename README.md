@@ -14,6 +14,7 @@ Native client-area render with real public [Portal 2 artwork](https://store.stea
 - Black native window caption and border on Windows 11, with a compatible dark-frame fallback on Windows 10.
 - Game cover artwork and achievement icons from Steam, loaded in the background. Icons are fetched only for visible results; unavailable artwork keeps the built-in fallback.
 - The game-folder field keeps the path, Browse and Scan controls on one aligned row, centers the single-line path text vertically and uses a monospace treatment for long directories.
+- The path field uses a flat in-theme surface with no contrasting black frame strip; the themed scrollbar uses the same surface, border and accent tokens as the rest of the client.
 - Search achievements by name, description or API ID; filter All / Locked / Unlocked.
 - A compact, scrollable file-manager style achievement list with two-line rows, individual checkboxes, status and full-text tooltips.
 - Total, unlocked and locked counts, plus the number selected (including selections hidden by filters).
@@ -35,10 +36,10 @@ Download `UmiAchievementClaimer.exe` from [GitHub Releases](https://github.com/T
 
 | Item | Value |
 |---|---|
-| Version | `1.8.0` |
+| Version | `1.9.0` |
 | File | `UmiAchievementClaimer.exe` |
-| Size | `279,040 bytes` |
-| SHA-256 | `296C99BAE1760C41D464FD42B287BF7ECD4CD2BAFA410C4D6BD8D27A3B355E81` |
+| Size | `284,672 bytes` |
+| SHA-256 | `4774DB6B8CB03CD7107892256B3E145CC9681BB74DD7BBACDEBE0803C644D355` |
 
 Verify the downloaded file in PowerShell:
 
@@ -83,7 +84,7 @@ Run the native UI regression checks after building:
 
 The checks use synthetic game and achievement data. They do not invoke the Steam worker or change a Steam profile. Native render captures are written to the ignored `.impeccable/review/` directory. Real Steam scan/claim compatibility must be validated separately for the target game.
 
-The UI regression suite covers the Settings panel, language toggle, theme preset/custom-accent path, centered long folder paths, compact scrolling rows, minimum-size geometry, hidden selections and native frame requests. The latest run reports `57 PASS, 0 FAIL`.
+The UI regression suite covers the compact Settings panel, language toggle, theme preset/custom-accent path, centered borderless folder paths, custom themed scrolling rows, minimum-size geometry, hidden selections and native frame requests. The latest run reports `60 PASS, 0 FAIL`.
 
 An optional live artwork check downloads a public Portal 2 cover and both achievement-icon states, and saves fixtures for the UI render checks:
 

@@ -34,8 +34,8 @@ internal sealed class SettingsDialog : Form
         ShowInTaskbar = false;
         ShowIcon = false;
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(460, 360);
-        Padding = new Padding(24);
+        ClientSize = new Size(460, 280);
+        Padding = new Padding(20);
         BackColor = UiTheme.Canvas;
         ForeColor = UiTheme.Text;
         Font = UiTheme.Font(9F);
@@ -48,12 +48,12 @@ internal sealed class SettingsDialog : Form
             Margin = new Padding(0)
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 88F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
 
         headingLabel.Dock = DockStyle.Fill;
         headingLabel.Font = UiTheme.DisplayFont(16F, FontStyle.Bold);
@@ -97,7 +97,7 @@ internal sealed class SettingsDialog : Form
             Dock = DockStyle.Fill,
             ColumnCount = 3,
             RowCount = 1,
-            Margin = new Padding(0, 8, 0, 0)
+            Margin = new Padding(0, 4, 0, 0)
         };
         themes.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         themes.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
@@ -111,15 +111,15 @@ internal sealed class SettingsDialog : Form
         themes.Controls.Add(arcadeButton, 2, 0);
         layout.Controls.Add(themes, 0, 3);
 
-        Panel customPanel = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 10, 0, 0) };
+        Panel customPanel = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0) };
         activeThemeLabel.Dock = DockStyle.Left;
-        activeThemeLabel.Width = 210;
+        activeThemeLabel.Width = 200;
         activeThemeLabel.ForeColor = UiTheme.MutedText;
         activeThemeLabel.TextAlign = ContentAlignment.MiddleLeft;
         UiTheme.StyleButton(customAccentButton, UmiButtonStyle.Ghost);
         customAccentButton.Text = "CUSTOM ACCENT";
         customAccentButton.Dock = DockStyle.Right;
-        customAccentButton.Width = 150;
+        customAccentButton.Width = 148;
         customAccentButton.Height = 30;
         customAccentButton.Click += ChooseCustomAccent;
         customPanel.Controls.Add(customAccentButton);
@@ -129,7 +129,7 @@ internal sealed class SettingsDialog : Form
         UiTheme.StyleButton(closeButton, UmiButtonStyle.Primary);
         closeButton.DialogResult = DialogResult.OK;
         closeButton.Dock = DockStyle.Right;
-        closeButton.Width = 116;
+        closeButton.Width = 96;
         closeButton.Height = 30;
         layout.Controls.Add(closeButton, 0, 5);
 

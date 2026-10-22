@@ -25,6 +25,7 @@ internal static class UiRegression
 
     private static object Field(object target, string name) { return target.GetType().GetField(name, Members).GetValue(target); }
     private static void Set(object target, string name, object value) { target.GetType().GetField(name, Members).SetValue(target, value); }
+    private static void SetProperty(object target, string name, object value) { target.GetType().GetProperty(name, Members).SetValue(target, value, null); }
     private static object Property(object target, string name) { return target.GetType().GetProperty(name, Members).GetValue(target, null); }
     private static object Call(object target, string name, params object[] args) { return target.GetType().GetMethod(name, Members).Invoke(target, args); }
     private static Control Control(object target, string name) { return (Control)Field(target, name); }
@@ -289,6 +290,10 @@ internal static class UiRegression
 
                 table.Rows[0].Cells[0].Value = true;
                 Check(Checked(grid).Length == 1 && Control(form, "claimButton").Enabled, "explicit checkbox enables Claim");
+                ((Button)Field(form, "selectionMenuButton")).PerformClick();
+                ContextMenuStrip menu = (ContextMenuStrip)Field(form, "selectionMenu");
+                Check(menu.Items.Count == 3 && menu.Renderer != null, "selection menu exposes three themed actions");
+                menu.Close();
                 search.Text = "Explorer";
                 Check(Checked(grid).Length == 1 && Control(form, "selectedCountLabel").Text.Contains("1 hidden"), "filter preserves and discloses hidden selections");
                 ((Button)Field(form, "selectAllButton")).PerformClick();
@@ -336,6 +341,10 @@ internal static class UiRegression
                 form.Size = form.MinimumSize;
                 Check(Inside(form, Control(form, "claimButton")) && Inside(form, search), "minimum size keeps Claim and search inside client area");
                 Report("minimum-grid", table);
+                Check(Control(form, "achievementScrollBar").Visible && Control(form, "achievementScrollBar").Width == 12,
+                    "overflowing achievements use the themed scrollbar at minimum size");
+                SetProperty(Field(form, "achievementScrollBar"), "Value", 1);
+                Check((int)Property(grid, "FirstDisplayedScrollingRowIndex") == 1, "themed scrollbar moves the achievement list");
                 Check(table.Height >= table.RowTemplate.Height, "minimum size leaves at least one complete achievement row");
                 Check(SingleRowsFit(form), "minimum-size single-row layout children fit their parents");
                 Capture(form, "minimum-vi.png");

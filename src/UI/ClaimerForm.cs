@@ -54,6 +54,7 @@ internal sealed class ClaimerForm : Form
     private readonly Label achievementHintLabel = new Label();
     private readonly Label achievementDescriptionLabel = new Label();
     private readonly AchievementGrid achievementList = new AchievementGrid();
+    private readonly ThemedScrollBar achievementScrollBar = new ThemedScrollBar();
     private readonly Button selectAllButton = new UmiButton();
     private readonly Button selectLockedButton = new UmiButton();
     private readonly Button clearSelectionButton = new UmiButton();
@@ -219,15 +220,15 @@ internal sealed class ClaimerForm : Form
         pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80F));
         Panel input = pathInputFrame;
         input.Dock = DockStyle.Fill;
-        input.BackColor = UiTheme.Border;
-        input.Padding = new Padding(1);
+        input.BackColor = UiTheme.SurfaceMuted;
+        input.Padding = new Padding(0);
         input.Margin = new Padding(0, 0, 8, 0);
         pathBox.Dock = DockStyle.None;
         pathBox.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
         pathBox.Height = 24;
         pathBox.Margin = new Padding(0);
         pathBox.BorderStyle = BorderStyle.None;
-        pathBox.BackColor = UiTheme.Canvas;
+        pathBox.BackColor = UiTheme.SurfaceMuted;
         pathBox.ForeColor = UiTheme.Text;
         pathBox.Font = UiTheme.MonoFont(8.7F);
         pathBox.Padding = new Padding(0);
@@ -268,6 +269,37 @@ internal sealed class ClaimerForm : Form
         pathBox.Left = inset;
         pathBox.Width = Math.Max(20, pathInputFrame.ClientSize.Width - inset * 2);
         pathBox.Top = Math.Max(1, (pathInputFrame.ClientSize.Height - pathBox.Height) / 2);
+    }
+
+    private void UpdateAchievementScrollBar()
+    {
+        int total = achievementList.Rows.Count;
+        if (total == 0)
+        {
+            achievementScrollBar.SetRange(0, 0, 1, 0);
+            LayoutAchievementList();
+            return;
+        }
+
+        int visible = achievementList.VisibleRows();
+
+        int first = achievementList.FirstDisplayedScrollingRowIndex;
+        if (first < 0) first = 0;
+        achievementScrollBar.SetRange(0, Math.Max(0, total - 1), visible, first);
+        LayoutAchievementList();
+    }
+
+    private void LayoutAchievementList()
+    {
+        int barWidth = achievementScrollBar.Visible ? 12 : 0;
+        if (barWidth > 0) achievementScrollBar.Width = barWidth;
+        int width = Math.Max(1, achievementListHost.ClientSize.Width - barWidth);
+        int height = Math.Max(1, achievementListHost.ClientSize.Height);
+        achievementList.Bounds = new Rectangle(0, 0, width, height);
+        emptyLabel.Bounds = new Rectangle(0, 0, width, height);
+        achievementScrollBar.Bounds = new Rectangle(width, 0, barWidth, height);
+        if (emptyLabel.Visible) emptyLabel.BringToFront();
+        achievementScrollBar.BringToFront();
     }
 
     private void BuildInformationCard()
@@ -432,6 +464,8 @@ internal sealed class ClaimerForm : Form
         selectionMenuButton.Padding = new Padding(2, 0, 2, 0);
         selectionMenuButton.Dock = DockStyle.Fill;
         selectionMenuButton.Click += ShowSelectionMenu;
+        selectionMenu.Renderer = new UmiToolStripRenderer();
+        selectionMenu.ShowImageMargin = false;
         bulk.Controls.Add(selectionMenuButton, 0, 0);
         selectAllButton.Click += delegate { SetAchievementChecks(delegate { return true; }); };
         selectLockedButton.Click += delegate { SetAchievementChecks(item => !item.Achieved); };
@@ -446,18 +480,41 @@ internal sealed class ClaimerForm : Form
         listHost.Dock = DockStyle.Fill;
         listHost.Margin = new Padding(0);
         listHost.BackColor = UiTheme.Surface;
-        achievementList.Dock = DockStyle.Fill;
+        achievementList.Dock = DockStyle.None;
+        achievementList.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
         achievementList.ArtworkProvider = GetAchievementImage;
         achievementList.ChecksChanged += delegate { UpdateClaimButtonState(); };
         achievementList.SelectedItemChanged += delegate { UpdateAchievementDescription(); };
-        achievementList.Scroll += delegate { QueueVisibleArtwork(); };
-        achievementList.Resize += delegate { QueueVisibleArtwork(); };
-        emptyLabel.Dock = DockStyle.Fill;
+        achievementList.Scroll += delegate { UpdateAchievementScrollBar(); QueueVisibleArtwork(); };
+        achievementList.Resize += delegate { UpdateAchievementScrollBar(); QueueVisibleArtwork(); };
+        achievementList.RowsAdded += delegate { UpdateAchievementScrollBar(); };
+        achievementList.RowsRemoved += delegate { UpdateAchievementScrollBar(); };
+        achievementList.MouseWheel += delegate(object sender, MouseEventArgs e) { achievementList.ScrollBy(e.Delta); UpdateAchievementScrollBar(); QueueVisibleArtwork(); };
+        emptyLabel.Dock = DockStyle.None;
+        emptyLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+        emptyLabel.Padding = new Padding(0, 0, 14, 0);
         emptyLabel.TextAlign = ContentAlignment.MiddleCenter;
         emptyLabel.ForeColor = UiTheme.MutedText;
         emptyLabel.Font = UiTheme.Font(11F);
+        achievementScrollBar.Dock = DockStyle.None;
+        achievementScrollBar.Width = 12;
+        achievementScrollBar.Margin = new Padding(0);
+        achievementScrollBar.TabStop = true;
+        achievementScrollBar.Visible = false;
+        achievementScrollBar.ValueChanged += delegate
+        {
+            if (achievementList.Rows.Count == 0)
+                return;
+            try { achievementList.FirstDisplayedScrollingRowIndex = achievementScrollBar.Value; }
+            catch (ArgumentOutOfRangeException) { }
+            QueueVisibleArtwork();
+        };
         listHost.Controls.Add(achievementList);
         listHost.Controls.Add(emptyLabel);
+        listHost.Controls.Add(achievementScrollBar);
+        listHost.Resize += delegate { LayoutAchievementList(); UpdateAchievementScrollBar(); };
+        LayoutAchievementList();
+        achievementScrollBar.BringToFront();
         workspace.Controls.Add(listHost, 0, 5);
         achievementDescriptionLabel.Dock = DockStyle.Fill;
         achievementDescriptionLabel.Font = UiTheme.Font(8.5F);
@@ -555,7 +612,6 @@ internal sealed class ClaimerForm : Form
         selectionMenu.Items.Clear();
         selectionMenu.BackColor = UiTheme.Surface;
         selectionMenu.ForeColor = UiTheme.Text;
-        selectionMenu.ShowImageMargin = false;
         AddSelectionMenuItem(L("Chọn đang hiện", "Select visible"), delegate { SetAchievementChecks(delegate { return true; }); });
         AddSelectionMenuItem(L("Chọn chưa mở", "Select locked"), delegate { SetAchievementChecks(item => !item.Achieved); });
         AddSelectionMenuItem(L("Bỏ chọn hết", "Clear all"), delegate { achievementList.ClearChecks(); });
@@ -657,8 +713,8 @@ internal sealed class ClaimerForm : Form
         headerPanel.BackColor = UiTheme.Canvas;
         pageLayout.BackColor = UiTheme.Canvas;
         gameCard.BackColor = UiTheme.Surface;
-        pathInputFrame.BackColor = UiTheme.Border;
-        pathBox.BackColor = UiTheme.Canvas;
+        pathInputFrame.BackColor = UiTheme.SurfaceMuted;
+        pathBox.BackColor = UiTheme.SurfaceMuted;
         pathBox.ForeColor = UiTheme.Text;
         pathCueLabel.ForeColor = UiTheme.MutedText;
         searchHost.BackColor = UiTheme.Canvas;
@@ -708,6 +764,7 @@ internal sealed class ClaimerForm : Form
         logBox.ForeColor = UiTheme.LogText;
         statusLabel.ForeColor = statusKey == "failed" ? UiTheme.Warning : statusKey == "scanning" || statusKey == "claiming" ? UiTheme.Cyan : UiTheme.Success;
         achievementList.RefreshTheme();
+        achievementScrollBar.RefreshTheme();
         ApplyAchievementFilter();
         RefreshClaimButtonStyle();
         UpdateStatus(statusKey);
@@ -996,6 +1053,7 @@ internal sealed class ClaimerForm : Form
     private void SetAchievementControlsEnabled(bool enabled)
     {
         achievementList.Enabled = enabled;
+        achievementScrollBar.Enabled = enabled;
         selectAllButton.Enabled = enabled;
         selectLockedButton.Enabled = enabled;
         clearSelectionButton.Enabled = enabled;
@@ -1036,6 +1094,9 @@ internal sealed class ClaimerForm : Form
         confirmationHintLabel.Text = L("Chỉ thay đổi sau khi xác nhận", "Nothing changes until confirmed");
         visibleCountLabel.Text = achievementList.VisibleCount + "/" + total + L(" mục", " shown");
         emptyLabel.Visible = achievementList.VisibleCount == 0;
+        if (emptyLabel.Visible) emptyLabel.BringToFront();
+        achievementScrollBar.BringToFront();
+        UpdateAchievementScrollBar();
         emptyLabel.Text = statusKey == "scanning" ? L("Đang đọc danh sách achievement...\nThao tác quét không claim achievement.", "Reading achievements...\nScanning does not claim achievements.")
             : total > 0 ? L("Không có kết quả phù hợp.\nThử từ khóa hoặc bộ lọc khác.", "No matching achievements.\nTry another search or filter.")
             : statusKey == "failed" ? L("Chưa tải được achievement.\nMở nhật ký để xem chi tiết và thử quét lại.", "Achievements could not be loaded.\nOpen the activity log for details, then scan again.")

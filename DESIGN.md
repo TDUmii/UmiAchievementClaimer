@@ -83,7 +83,7 @@ components:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.text}"
     rounded: "{rounded.card}"
-    padding: "20px"
+    padding: "16px"
   input:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.text}"
@@ -123,7 +123,7 @@ The default client is 1220 x 840; the minimum outer window is 1040 x 760. These 
 
 An 86px header holds the logo, name, Steam status and one compact `SETTINGS` button. There is no header subtitle. The page uses 24px horizontal inset, 20px top inset and 18px bottom inset. A fixed 266px sidebar column includes a 16px right gap; the achievement workspace fills the remaining width. The summary card uses 16px padding; the workspace uses 16px horizontal padding.
 
-The workspace orders heading, the single-row folder path controls, metrics, filters/search, a compact selection menu, scrollable results, selected-item detail and a fixed selection footer. The path is a vertically centered single-line field. The footer stays outside the scrolling rows. The only explanatory subtitle is inside the Achievements heading. The log spans both columns and is collapsed initially. At smaller heights its expanded area is reduced. Expanding technical details replaces the cover area in the sidebar so both regions do not compete for height.
+The workspace orders heading, the single-row folder path controls, metrics, filters/search, a compact selection menu, scrollable results, selected-item detail and a fixed selection footer. The path is a flat, borderless, vertically centered single-line field. The footer stays outside the scrolling rows. The only explanatory subtitle is inside the Achievements heading. The log spans both columns and is collapsed initially. At smaller heights its expanded area is reduced. Expanding technical details replaces the cover area in the sidebar so both regions do not compete for height.
 
 ## Elevation & Depth
 
@@ -136,9 +136,9 @@ Cards have gently rounded corners (14px) and buttons use a tighter radius (8px).
 ## Components
 
 - **Buttons:** the primary and accent variants share lavender fill, dark text and bold 9pt labels. Secondary buttons use a muted surface with a one-pixel border; ghost controls use the card surface. Hover/pressed feedback is immediate. Disabled buttons use muted text and the disabled fill. Shared horizontal padding is 10px, with compact local overrides for filters and details.
-- **Settings controls:** the header exposes one small `SETTINGS` button. Its dialog groups the `EN` / `VI` toggle, Steam Midnight/Carbon/Arcade presets and a custom accent picker. The picker derives hover/pressed colors and contrast-aware primary text, then persists the choice in the user's application data folder.
+- **Settings controls:** the header exposes one small `SETTINGS` button. Its compact dialog uses aligned desktop-settings rows for the `EN` / `VI` toggle, Steam Midnight/Carbon/Arcade presets and a custom accent picker. The picker derives hover/pressed colors and contrast-aware primary text, then persists the choice in the user's application data folder.
 - **Game summary:** the cover, current game, detection status, AppID and architecture establish context. Technical details are an explicit disclosure. Read-only scan and confirmation guidance stays at the bottom.
-- **Achievement grid:** a native vertically scrollable explorer-style list pairs a checkbox, state-specific artwork, bold name, secondary description and text status. Compact rows are at least 54px and grow with the font. Focused rows and checked items are separate states; row focus alone does not select an achievement for claiming. Space toggles the current row's checkbox.
+- **Achievement grid:** a native vertically scrollable explorer-style list pairs a checkbox, state-specific artwork, bold name, secondary description and text status. Compact rows are at least 54px and grow with the font. Overflow uses a custom themed scrollbar with keyboard, wheel and drag input. Focused rows and checked items are separate states; row focus alone does not select an achievement for claiming. Space toggles the current row's checkbox.
 - **Search and filters:** borderless text fields sit on the canvas tone. All / Locked / Unlocked filters change the visible collection while retaining every checked item. A single `SELECT` menu holds the visible, locked-visible and clear-all actions; the footer includes hidden selected items.
 - **Selection footer:** the count, confirmation hint and Claim button stay together. Zero selection leaves Claim disabled. Confirmation shows game, AppID, exact selected/total count and the consequence warning; Cancel receives initial focus and is the Enter/Escape default.
 - **Artwork:** use public Steam store/community metadata, keyed by achievement API ID or name, and official Steam CDN images. Load icons for visible rows and choose locked/unlocked imagery from the current state. Missing images retain the built-in fallback. Do not treat review fixtures as bundled product artwork.

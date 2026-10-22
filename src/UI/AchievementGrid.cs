@@ -40,7 +40,8 @@ internal sealed class AchievementGrid : DataGridView
         SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         CellBorderStyle = DataGridViewCellBorderStyle.None;
         EditMode = DataGridViewEditMode.EditOnEnter;
-        ScrollBars = ScrollBars.Vertical;
+        // The list uses a themed companion scrollbar so it stays inside the Steam Midnight surface.
+        ScrollBars = ScrollBars.None;
         EnableHeadersVisualStyles = false;
         ShowCellToolTips = true;
         AccessibleName = "Achievements";
@@ -96,6 +97,29 @@ internal sealed class AchievementGrid : DataGridView
     }
 
     public int VisibleCount { get { return Rows.Count; } }
+
+    public void ScrollBy(int delta)
+    {
+        if (Rows.Count == 0)
+            return;
+        int visible = VisibleRows();
+        int maximum = Math.Max(0, Rows.Count - visible);
+        int current = FirstDisplayedScrollingRowIndex;
+        if (current < 0)
+            current = 0;
+        int step = Math.Max(1, Math.Abs(delta) / 120);
+        int next = Math.Max(0, Math.Min(maximum, current + (delta < 0 ? step : -step)));
+        if (next == current)
+            return;
+        try { FirstDisplayedScrollingRowIndex = next; }
+        catch (ArgumentOutOfRangeException) { }
+        Invalidate();
+    }
+
+    public int VisibleRows()
+    {
+        return Math.Max(1, ClientSize.Height / Math.Max(1, RowTemplate.Height));
+    }
 
     public void RefreshTheme()
     {
@@ -403,6 +427,194 @@ internal sealed class AchievementGrid : DataGridView
             titleFont = null;
         }
         base.Dispose(disposing);
+    }
+}
+
+internal sealed class ThemedScrollBar : Control
+{
+    private int minimum;
+    private int maximum;
+    private int largeChange = 1;
+    private int value;
+    private bool dragging;
+    private int dragOffset;
+    private bool hovered;
+
+    public ThemedScrollBar()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        Cursor = Cursors.Hand;
+        AccessibleRole = AccessibleRole.ScrollBar;
+        AccessibleName = "Achievement list scrollbar";
+        TabStop = true;
+    }
+
+    public event EventHandler ValueChanged;
+
+    public int Value
+    {
+        get { return value; }
+        set { SetValue(value, true); }
+    }
+
+    public int LargeChange
+    {
+        get { return largeChange; }
+        private set { largeChange = Math.Max(1, value); }
+    }
+
+    public void SetRange(int minimum, int maximum, int largeChange, int value)
+    {
+        this.minimum = Math.Max(0, minimum);
+        this.maximum = Math.Max(this.minimum, maximum);
+        LargeChange = largeChange;
+        SetValue(value, false);
+        Visible = this.maximum > this.minimum + LargeChange - 1;
+        Invalidate();
+    }
+
+    public void RefreshTheme()
+    {
+        Invalidate();
+    }
+
+    private int EffectiveMaximum
+    {
+        get { return Math.Max(minimum, maximum - LargeChange + 1); }
+    }
+
+    private int TrackTop { get { return 4; } }
+    private int TrackBottom { get { return Math.Max(TrackTop + 1, Height - 4); } }
+    private int TrackHeight { get { return Math.Max(1, TrackBottom - TrackTop); } }
+
+    private Rectangle ThumbBounds
+    {
+        get
+        {
+            int content = Math.Max(1, maximum - minimum + 1);
+            int thumbHeight = Math.Max(28, (int)Math.Round(TrackHeight * (LargeChange / (double)(content + LargeChange))));
+            thumbHeight = Math.Min(TrackHeight, thumbHeight);
+            int travel = Math.Max(0, TrackHeight - thumbHeight);
+            int range = Math.Max(1, EffectiveMaximum - minimum);
+            int offset = (int)Math.Round(travel * ((value - minimum) / (double)range));
+            return new Rectangle((Width - 7) / 2, TrackTop + offset, 7, thumbHeight);
+        }
+    }
+
+    private void SetValue(int next, bool notify)
+    {
+        int clamped = Math.Max(minimum, Math.Min(EffectiveMaximum, next));
+        if (value == clamped)
+        {
+            Invalidate();
+            return;
+        }
+        value = clamped;
+        Invalidate();
+        if (notify && ValueChanged != null)
+            ValueChanged(this, EventArgs.Empty);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        e.Graphics.Clear(Parent == null ? UiTheme.Surface : Parent.BackColor);
+        Rectangle track = new Rectangle((Width - 5) / 2, TrackTop, 5, TrackHeight);
+        using (SolidBrush brush = new SolidBrush(UiTheme.SurfaceMuted))
+            e.Graphics.FillRectangle(brush, track);
+        Rectangle thumb = ThumbBounds;
+        Color thumbColor = dragging ? UiTheme.Primary : hovered ? UiTheme.Cyan : UiTheme.MutedText;
+        using (GraphicsPath path = UiTheme.RoundedRectangle(thumb, 3))
+        using (SolidBrush brush = new SolidBrush(thumbColor))
+            e.Graphics.FillPath(brush, path);
+    }
+
+    protected override void OnMouseEnter(EventArgs e)
+    {
+        hovered = true;
+        Invalidate();
+        base.OnMouseEnter(e);
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        hovered = false;
+        if (!dragging) Invalidate();
+        base.OnMouseLeave(e);
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button != MouseButtons.Left || !Visible || !Enabled)
+            return;
+        Rectangle thumb = ThumbBounds;
+        if (thumb.Contains(e.Location))
+        {
+            dragging = true;
+            dragOffset = e.Y - thumb.Top;
+            Capture = true;
+            Invalidate();
+            return;
+        }
+        SetValue(value + (e.Y < thumb.Top ? -LargeChange : LargeChange), true);
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (!dragging)
+            return;
+        int travel = Math.Max(1, TrackHeight - ThumbBounds.Height);
+        int position = Math.Max(TrackTop, Math.Min(TrackBottom - ThumbBounds.Height, e.Y - dragOffset));
+        int range = Math.Max(1, EffectiveMaximum - minimum);
+        SetValue(minimum + (int)Math.Round((position - TrackTop) * (range / (double)travel)), true);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        if (e.Button == MouseButtons.Left)
+        {
+            dragging = false;
+            Capture = false;
+            Invalidate();
+        }
+        base.OnMouseUp(e);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Up)
+        {
+            SetValue(value - 1, true);
+            e.Handled = true;
+            return;
+        }
+        if (e.KeyCode == Keys.Down)
+        {
+            SetValue(value + 1, true);
+            e.Handled = true;
+            return;
+        }
+        if (e.KeyCode == Keys.PageUp)
+        {
+            SetValue(value - LargeChange, true);
+            e.Handled = true;
+            return;
+        }
+        if (e.KeyCode == Keys.PageDown)
+        {
+            SetValue(value + LargeChange, true);
+            e.Handled = true;
+            return;
+        }
+        base.OnKeyDown(e);
+    }
+
+    protected override bool IsInputKey(Keys keyData)
+    {
+        Keys key = keyData & Keys.KeyCode;
+        return key == Keys.Up || key == Keys.Down || key == Keys.PageUp || key == Keys.PageDown || base.IsInputKey(keyData);
     }
 }
 }

@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.9.0 - 2026-10-22
+
+### Native UI finish pass
+
+- Removed the contrasting frame strip around the folder path and kept the field as a flat, vertically centered in-theme surface.
+- Replaced the white Windows achievement scrollbar with a compact themed scrollbar that follows the active surface, border and accent palette and drives the list by wheel, keyboard and drag.
+- Tightened the Settings dialog into a conventional compact form with aligned language, theme, custom accent and close actions.
+- Applied a matching dark renderer to the `SELECT` context menu.
+
+### Validation
+
+- Built the x86 worker, x64 worker and x64 Windows EXE with the Windows .NET Framework compilers.
+- Native UI regression: `60 PASS, 0 FAIL`, including borderless path rendering, themed scrollbar movement, compact Settings and the themed selection menu.
+- Live artwork smoke check: `10 PASS, 0 FAIL`.
+- Impeccable detector: clean JSON result (`[]`).
+- No Steam achievements were claimed as part of this UI release validation.
+
 ## 1.8.0 - 2026-10-22
 
 ### Focused settings and achievement list
