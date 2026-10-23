@@ -84,6 +84,8 @@ internal sealed class ClaimerForm : Form
     private readonly Button themeButton = new UmiButton();
     private readonly Button settingsButton = new UmiButton();
     private readonly Button preflightButton = new UmiButton();
+    private readonly Button insightsButton = new UmiButton();
+    private string rarityAppId;
     private readonly Button cancelWorkerButton = new UmiButton();
     private readonly Button sortButton = new UmiButton();
     private readonly ContextMenuStrip sortMenu = new ContextMenuStrip();
@@ -203,6 +205,12 @@ internal sealed class ClaimerForm : Form
         settingsButton.AccessibleName = "Open settings";
         settingsButton.Width = 92;
         settingsButton.Height = 32;
+        ConfigureButton(insightsButton, UmiButtonStyle.Secondary);
+        insightsButton.Text = "INSIGHTS";
+        insightsButton.AccessibleName = "View local achievement dashboard and recovery";
+        insightsButton.Width = 94;
+        insightsButton.Height = 32;
+        insightsButton.Click += OpenInsights;
         ConfigureButton(preflightButton, UmiButtonStyle.Secondary);
         preflightButton.Text = "PREFLIGHT";
         preflightButton.Width = 96;
@@ -224,7 +232,7 @@ internal sealed class ClaimerForm : Form
         FlowLayoutPanel actions = new FlowLayoutPanel
         {
             Dock = DockStyle.Right,
-            Width = 312,
+            Width = 418,
             Height = 48,
             FlowDirection = FlowDirection.RightToLeft,
             WrapContents = false,
@@ -234,6 +242,7 @@ internal sealed class ClaimerForm : Form
         actions.Controls.Add(settingsButton);
         actions.Controls.Add(cancelWorkerButton);
         actions.Controls.Add(preflightButton);
+        actions.Controls.Add(insightsButton);
         Panel steamStatusHost = new Panel { Width = 108, Height = 32, Margin = new Padding(0, 0, 6, 0) };
         steamStatusHost.Controls.Add(steamStatusLabel);
         actions.Controls.Add(steamStatusHost);
@@ -911,6 +920,7 @@ internal sealed class ClaimerForm : Form
         languageToggleButton.AccessibleDescription = English ? "Switch to Vietnamese" : "Chuyển sang English";
         settingsButton.Text = L("CÀI ĐẶT", "SETTINGS");
         preflightButton.Text = L("KIỂM TRA", "PREFLIGHT");
+        insightsButton.Text = L("THỐNG KÊ", "INSIGHTS");
         cancelWorkerButton.Text = L("HỦY", "CANCEL");
         UpdateSortButton();
         settingsButton.AccessibleDescription = L("Mở cài đặt giao diện và ngôn ngữ", "Open language and theme settings");
@@ -992,6 +1002,7 @@ internal sealed class ClaimerForm : Form
         UiTheme.StyleButton(themeButton, UmiButtonStyle.Ghost);
         UiTheme.StyleButton(settingsButton, UmiButtonStyle.Ghost);
         UiTheme.StyleButton(preflightButton, UmiButtonStyle.Secondary);
+        UiTheme.StyleButton(insightsButton, UmiButtonStyle.Secondary);
         UiTheme.StyleButton(cancelWorkerButton, UmiButtonStyle.Secondary);
         UiTheme.StyleButton(sortButton, UmiButtonStyle.Ghost);
         foreach (Button filter in filterButtons)
@@ -1067,7 +1078,7 @@ internal sealed class ClaimerForm : Form
     {
         progress.Visible = busy;
         pageLayout.RowStyles[3].Height = busy ? 3F * Font.Height / 15F : 0F;
-        browseButton.Enabled = libraryButton.Enabled = pathBox.Enabled = languageToggleButton.Enabled = themeButton.Enabled = settingsButton.Enabled = preflightButton.Enabled = !busy;
+        browseButton.Enabled = libraryButton.Enabled = pathBox.Enabled = languageToggleButton.Enabled = themeButton.Enabled = settingsButton.Enabled = preflightButton.Enabled = insightsButton.Enabled = !busy;
         cancelWorkerButton.Visible = busy && workerProcess != null;
         cancelWorkerButton.Enabled = workerProcess != null && string.IsNullOrEmpty(workerStopReason);
         sortButton.Enabled = !busy;
@@ -1164,6 +1175,31 @@ internal sealed class ClaimerForm : Form
         achievementList.Invalidate();
     }
 
+    private void OpenInsights(object sender, EventArgs e)
+    {
+        if (workerProcess != null || detectingGame) return;
+        using (InsightsDialog dashboard = new InsightsDialog(
+            detectedGame == null ? null : detectedGame.AppId, achievementList.Items, English))
+        {
+            if (dashboard.ShowDialog(this) == DialogResult.Retry && detectedGame != null)
+                LoadAchievements(); // Explicit read-only re-scan, never an automatic retry of Claim.
+        }
+    }
+
+    private async void LoadGlobalRarity(string appId)
+    {
+        rarityAppId = appId;
+        Dictionary<string, double> data = await SteamRarity.FetchAsync(appId);
+        if (IsDisposed || Disposing || rarityAppId != appId || detectedGame == null || detectedGame.AppId != appId) return;
+        foreach (AchievementItem item in achievementList.Items)
+        {
+            double percent;
+            item.GlobalPercent = data.TryGetValue(item.Id, out percent) ? percent : -1;
+        }
+        achievementList.Invalidate();
+        AppendLog(L("Độ hiếm: ", "Rarity: ") + data.Count + L(" mục có dữ liệu công khai.", " public data points."));
+    }
+
     private void OpenSteamLibrary(object sender, EventArgs e)
     {
         if (workerProcess != null || detectingGame) return;
@@ -1210,6 +1246,7 @@ internal sealed class ClaimerForm : Form
         UpdateStatus("scanning");
         claimButton.Enabled = false;
         ClearArtwork();
+        rarityAppId = null;
         achievementList.ClearItems();
         SetAchievementControlsEnabled(false);
         detectedGame = null;
@@ -1437,7 +1474,7 @@ internal sealed class ClaimerForm : Form
     private AchievementItem ParseAchievement(string line)
     {
         string[] fields = line.Substring("ACHIEVEMENT=".Length).Split('|');
-        if (fields.Length != 5)
+        if (fields.Length != 5 && fields.Length != 6)
             throw new FormatException(L("Dòng achievement không hợp lệ.", "Invalid achievement row."));
         return new AchievementItem
         {
@@ -1445,8 +1482,15 @@ internal sealed class ClaimerForm : Form
             Id = Encoding.UTF8.GetString(Convert.FromBase64String(fields[2])),
             Name = Encoding.UTF8.GetString(Convert.FromBase64String(fields[3])),
             Description = Encoding.UTF8.GetString(Convert.FromBase64String(fields[4])),
-            English = English
+            English = English,
+            UnlockUnix = fields.Length == 6 ? ParseUnlockTime(fields[5]) : 0
         };
+    }
+
+    private static long ParseUnlockTime(string raw)
+    {
+        long result;
+        return long.TryParse(raw, out result) && result >= 0 && result < 4102444800L ? result : 0;
     }
 
     private string CreateSelectionFile(IEnumerable<AchievementItem> selected)
@@ -1493,6 +1537,15 @@ internal sealed class ClaimerForm : Form
         try
         {
             lastClaimCount = selected.Count;
+            try
+            {
+                AchievementHistory.SavePending(detectedGame.AppId, achievementList.Items, selected);
+                AppendLog(L("Đã lưu dấu mốc trước Claim để đối chiếu chỉ đọc.", "Saved pre-claim state for read-only recovery."));
+            }
+            catch (Exception historyError)
+            {
+                AppendLog(L("Không lưu được dấu mốc: ", "Pre-claim snapshot unavailable: ") + historyError.Message);
+            }
             string selectionPath = CreateSelectionFile(selected);
             AppendLog(L("Bắt đầu claim ", "Starting claim for ") + selected.Count + L(" achievement đã chọn...", " selected achievement(s)..."));
             StartWorker("selected", selectionPath);
@@ -1569,6 +1622,19 @@ internal sealed class ClaimerForm : Form
                 SetAchievementControlsEnabled(loaded);
                 UpdateClaimButtonState();
                 UpdateStatus(!string.IsNullOrEmpty(interrupted) ? "interrupted" : loaded ? "complete" : "failed");
+                if (loaded && detectedGame != null)
+                {
+                    try
+                    {
+                        bool changed = AchievementHistory.Save(
+                            AchievementHistory.Create(detectedGame.AppId, detectedGame.Name, achievementList.Items));
+                        AppendLog(changed ? L("Đã lưu snapshot mới trên máy.", "New local snapshot saved.")
+                            : L("Snapshot trùng trạng thái trước; không lưu lại.", "Snapshot unchanged; duplicate skipped."));
+                    }
+                    catch (Exception historyError)
+                    { AppendLog(L("Không lưu được snapshot: ", "Snapshot not saved: ") + historyError.Message); }
+                    LoadGlobalRarity(detectedGame.AppId);
+                }
                 AppendLog(loaded
                     ? L("Đã tải ", "Loaded ") + achievementList.Items.Count + L(" achievement. Mặc định chưa chọn mục nào.", " achievements. Nothing is selected by default.")
                     : L("Không tải được danh sách achievement. Xem log phía trên.", "Could not load the achievement list. Check the log above."));
@@ -1735,6 +1801,7 @@ internal sealed class ClaimerForm : Form
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         UiTheme.Changed -= ThemeChanged;
+        rarityAppId = null;
         ClearArtwork();
         workerTimer.Stop();
         workerTimer.Dispose();

@@ -9,6 +9,8 @@ internal sealed class AchievementItem
     public string Description;
     public bool Achieved;
     public bool English;
+    public long UnlockUnix;
+    public double GlobalPercent = -1;
 
     public override string ToString()
     {

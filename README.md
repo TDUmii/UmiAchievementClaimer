@@ -8,9 +8,9 @@ A lightweight, bilingual **Windows utility** for reviewing Steam game achievemen
 
 ## Interface — Steam Midnight v2
 
-![Umi Achievement Claimer Steam Midnight v2 — wide game summary, searchable achievement list, selection footer](docs/images/steam-midnight-v2.png)
+![Umi Achievement Claimer 1.11.0: Steam Midnight UI with Insights, filters and achievement selection](docs/images/desktop-v1.11.0-test.png)
 
-*Current WinForms client-area capture (1220 × 840). Real public Portal 2 cover/achievement artwork, but **synthetic game state, installation path and achievement entries**. This is a UI test image, not evidence of claiming real Steam achievements. Native Windows title-bar pixels are not included.*
+*Current native WinForms regression capture with entirely synthetic game information and achievement entries. It is not evidence of a real Steam claim, and Windows-composited titlebar pixels are not part of the verified client render.*
 
 The interface prioritizes three actions: **choose a game → review/select achievements → confirm a claim**.
 
@@ -21,6 +21,22 @@ The interface prioritizes three actions: **choose a game → review/select achie
 - **Claim footer:** displays exactly how many achievements are selected, including those hidden by your current search/filter. Nothing is claimed until you confirm.
 - **Diagnostics:** collapsible Activity log with Copy log, enlarged readable log text, themed scrolling and expandable Steam API details.
 - **Appearance:** Steam Midnight, Carbon, Arcade and custom accent themes, plus English/Vietnamese controls in Settings.
+
+### Version 1.11.0: Rarity, Timeline, Dashboard & Recovery
+
+The **Insights** button opens a local dashboard showing games, unlocked counts, snapshots and changes between scans. After each successful read-only scan, the app saves up to 30 distinct snapshots per game. Double-click a game in Insights to inspect its local timeline, or export the active game's latest snapshot as CSV.
+
+- **Rarity:** Steam public global achievement percentages when available. Umi's Common / Rare / Ultra rare tiers are local display classifications.
+- **Unlock time:** uses Steamworks GetAchievementAndUnlockTime when the optional native export is supported; otherwise Not available.
+- **Recovery:** saves a baseline before an explicitly confirmed Claim; a subsequent read-only scan compares results without attempting another Claim.
+- **Updater:** manually checks the official public GitHub Releases feed and may open the official page after your approval. No automatic installation or execution.
+- **Privacy:** snapshots are stored under Windows AppData/UmiAchievementClaimer/history, contain no credentials or game paths, and are scoped to the Windows profile plus AppID, not Steam account ID.
+
+![Read-only Insights Dashboard with synthetic data](docs/images/insights-dashboard-en.png)
+
+*UI regression screenshot uses synthetic data. No Steam account changes were performed for this image.*
+
+See [1.11 quality gate and limitations](docs/QA_V1_11.md).
 
 ### Version 1.10.0: Reliability and workflow updates
 
@@ -58,7 +74,7 @@ Local development build checked on **October 23, 2026**:
 
 | Item | Local value |
 |---|---|
-| Product version reported by the project | `1.10.0` (local build; public release not yet published) |
+| Product version reported by the project | `1.11.0` (local build; public release not yet published) |
 | Executable | `dist\UmiAchievementClaimer.exe` (latest tested build) |
 | Size | Varies by build; check the latest `dist` executable |
 | SHA-256 | See `SHA256SUMS.txt` after the latest build |
@@ -138,7 +154,7 @@ The build places the newest executable in `dist\UmiAchievementClaimer.exe` and a
 .\tests\run-ui.ps1 -SkipBuild
 ```
 
-The latest local UI run completed **98 PASS / 0 FAIL** (October 23, 2026). The suite exercises synthetic game data, filtering, selection persistence, confirmation safety, settings, window geometry, and generated renders. It **does not** claim real Steam achievements or prove compatibility with any individual game. The 150% UI check simulates scaling rather than using a physical high-DPI screen. Native title-bar compositing is not captured by `DrawToBitmap`.
+The latest local UI run completed **112 PASS / 0 FAIL** (October 23, 2026). The suite exercises synthetic game data, filtering, selection persistence, confirmation safety, settings, window geometry, and generated renders. It **does not** claim real Steam achievements or prove compatibility with any individual game. The 150% UI check simulates scaling rather than using a physical high-DPI screen. Native title-bar compositing is not captured by `DrawToBitmap`.
 
 Render outputs are written to the ignored `.impeccable/review/` directory. The checked-in README screenshots were copied from those render outputs and show the current design without bundling Steam artwork into the application.
 
@@ -230,7 +246,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\tests\run-ui.ps1
 ```
 
-Kết quả kiểm thử UI gần nhất trên máy phát triển: **98 PASS, 0 FAIL** (ngày 23/10/2026). Đây là bài kiểm thử với dữ liệu giả lập, **không phải** chứng nhận tính tương thích claim với mọi game Steam. File EXE trên máy sau lần build được ghi checksum trong `SHA256SUMS.txt`.
+Kết quả kiểm thử UI gần nhất trên máy phát triển: **112 PASS, 0 FAIL** (ngày 23/10/2026). Đây là bài kiểm thử với dữ liệu giả lập, **không phải** chứng nhận tính tương thích claim với mọi game Steam. File EXE trên máy sau lần build được ghi checksum trong `SHA256SUMS.txt`.
 
 ## Lưu ý an toàn
 
