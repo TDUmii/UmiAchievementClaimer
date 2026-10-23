@@ -172,3 +172,7 @@ The main toolbar now has a compact Sort control beside the status filters and Qu
 ## Insights 1.11.0
 
 Steam Midnight Insights is a read-only dialog with local game metrics, snapshot history, timeline drill-down and recovery comparison, plus manual CSV export and update checking. Achievement Inspector displays public global rarity and optional native unlock time, with explicit unavailable fallbacks. The main header exposes Insights without changing the Claim flow.
+
+## Windows UI polish 1.11.1
+
+The first Activity log expansion uses explicit high-contrast text; the search box uses a native Windows cue (never an overlaid placeholder); a visible empty-state label replaces the hidden DataGridView whenever there are no visible rows. Settings presents readable Language and Appearance panels. Insights offers three distinct metric cards, a themed history list and roomier recovery actions. No native window resizing behavior is removed to fake a dark border. See docs/QA_V1_11_1_UI.md.

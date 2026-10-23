@@ -47,3 +47,7 @@ See [DESIGN.md](DESIGN.md) for the shipped visual system, [README.md](README.md)
 ## Read-only Insights 1.11.0
 
 Persist at most 30 unique successful scans per Windows profile and Steam AppID. Public rarity never requires account authentication. Claim recovery persists only explicit pre-claim baseline snapshots; rescan is always read-only and never retries Claim. Time, rarity and Steam-server synchronization can remain unknown. See docs/QA_V1_11.md.
+
+## No-achievement states / polish 1.11.1
+
+A successful Steam worker response of zero achievements is valid and produces a friendly empty state with Claim disabled. Failed scans remain errors. Users can browse other installed games without restarting. First-click log readability and search text clipping are covered by synthetic WinForms regression. See docs/QA_V1_11_1_UI.md.

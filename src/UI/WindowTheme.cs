@@ -37,7 +37,12 @@ internal static class WindowTheme
             int black = ColorTranslator.ToWin32(Color.Black);
             int text = ColorTranslator.ToWin32(UiTheme.Text);
             int caption = DwmSetWindowAttribute(form.Handle, CaptionColor, ref black, sizeof(int));
-            int border = DwmSetWindowAttribute(form.Handle, BorderColor, ref black, sizeof(int));
+            // Windows 11: DWMWA_COLOR_NONE suppresses the bright native resize border
+            // while keeping the standard movable/resizable system window frame.
+            int noBorder = unchecked((int)0xFFFFFFFE);
+            int border = DwmSetWindowAttribute(form.Handle, BorderColor, ref noBorder, sizeof(int));
+            if (border < 0)
+                border = DwmSetWindowAttribute(form.Handle, BorderColor, ref black, sizeof(int));
             int captionText = DwmSetWindowAttribute(form.Handle, TextColor, ref text, sizeof(int));
             return caption >= 0 && border >= 0 && captionText >= 0;
         }

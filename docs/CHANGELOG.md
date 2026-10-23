@@ -1,3 +1,12 @@
+## 1.11.1 — 2026-10-23 (UI polish)
+
+- Corrected first-click Activity log text color and added a regression before any theme switches.
+- Replaced the overlapping/clipped search placeholder with native Windows cue text.
+- Made the achievement table yield to explicit first-run, empty filter and zero-achievement states.
+- Redesigned Settings and Insights with a consistent typography, grouping, controls and metric hierarchy.
+- Requested no border through Windows 11 Desktop Window Manager with a compatibility fallback.
+- Expanded synthetic UI quality gates to **115 PASS / 0 FAIL**. See `docs/QA_V1_11_1_UI.md`.
+
 ## 1.11.0 — 2026-10-23 (Insights, local build)
 
 - Introduced public global achievement rarity percentages with honest unavailable-state fallback.

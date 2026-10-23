@@ -390,6 +390,12 @@ internal static class UniversalAchievementWorker
                     ? getNumAchievements(userStats)
                     : getCountMethod(userStats);
             }
+            if (count == 0 && (listOnly || probeOnly))
+            {
+                Console.WriteLine("DISCOVERED_COUNT=0");
+                Console.WriteLine(listOnly ? "RESULT=LIST_EMPTY" : "RESULT=PROBE_SUCCESS");
+                return 0;
+            }
             if (count == 0 || count > 10000)
                 throw new InvalidOperationException(Msg("Số achievement không hợp lệ: ", "Invalid achievement count: ") + count);
 

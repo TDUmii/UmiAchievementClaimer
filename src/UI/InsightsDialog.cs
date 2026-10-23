@@ -23,7 +23,11 @@ namespace UmiAchievementClaimer
         private readonly Label recovery = new Label();
         private readonly Button clearPending = new UmiButton();
         private readonly List<string> historyIds = new List<string>();
-        private readonly ListBox history = new ListBox();
+        private readonly ListBox history = new FlatLibraryList();
+        private readonly ThemedScrollBar historyScrollbar = new ThemedScrollBar();
+        private readonly Label gamesMetric = new Label();
+        private readonly Label unlockedMetric = new Label();
+        private readonly Label snapshotsMetric = new Label();
         private readonly Button export = new UmiButton();
         private readonly Button checkUpdate = new UmiButton();
         private readonly Button dismiss = new UmiButton();
@@ -37,8 +41,8 @@ namespace UmiAchievementClaimer
             activeItems = (current ?? Enumerable.Empty<AchievementItem>()).ToList();
             Text = english ? "Achievement insights" : "Thống kê thành tích";
             StartPosition = FormStartPosition.CenterParent;
-            ClientSize = new Size(750, 650);
-            MinimumSize = new Size(600, 520);
+            ClientSize = new Size(805, 680);
+            MinimumSize = new Size(665, 555);
             BackColor = UiTheme.Canvas;
             ForeColor = UiTheme.Text;
             Font = UiTheme.Font(10);
@@ -47,12 +51,12 @@ namespace UmiAchievementClaimer
 
             TableLayoutPanel root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6 };
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 53));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 80));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 71));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 114));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 146));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 74));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 162));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
             Label title = new Label { Dock = DockStyle.Fill, Text = english ? "Achievement Dashboard" : "Bảng thống kê thành tích",
                 Font = UiTheme.DisplayFont(20F, FontStyle.Bold), ForeColor = UiTheme.Text };
             root.Controls.Add(title, 0, 0);
@@ -61,19 +65,46 @@ namespace UmiAchievementClaimer
             summary.BackColor = UiTheme.Surface;
             summary.ForeColor = UiTheme.Text;
             summary.Font = UiTheme.DisplayFont(11F);
-            root.Controls.Add(summary, 0, 1);
+            // Three scannable metrics replace the dense all-in-one summary line.
+            TableLayoutPanel metricCards = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3,
+                RowCount = 1, Margin = new Padding(0) };
+            for (int m = 0; m < 3; m++) metricCards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+            metricCards.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            metricCards.Controls.Add(MetricCard(english ? "GAMES TRACKED" : "GAME ĐÃ QUÉT", gamesMetric, 0), 0, 0);
+            metricCards.Controls.Add(MetricCard(english ? "ACHIEVEMENTS UNLOCKED" : "THÀNH TÍCH ĐÃ MỞ", unlockedMetric, 1), 1, 0);
+            metricCards.Controls.Add(MetricCard(english ? "SAVED SNAPSHOTS" : "BẢN LƯU CỤC BỘ", snapshotsMetric, 2), 2, 0);
+            metricCards.Controls.Add(summary, 0, 0); // Summary text is accessibility-only, no duplicate visual labels.
+            summary.Visible = false;
+            root.Controls.Add(metricCards, 0, 1);
             var caption = new Label { Dock = DockStyle.Fill, Text = english ? "LOCAL SNAPSHOT HISTORY" : "LỊCH SỬ SNAPSHOT TRÊN MÁY",
                 ForeColor = UiTheme.Cyan, Font = UiTheme.DisplayFont(10F, FontStyle.Bold),
-                TextAlign = ContentAlignment.BottomLeft };
+                TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(2, 9, 0, 0) };
             root.Controls.Add(caption, 0, 2);
+            Panel historyCard = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.Surface,
+                Padding = new Padding(12, 8, 10, 8) };
             history.Dock = DockStyle.Fill;
             history.BackColor = UiTheme.Surface;
             history.ForeColor = UiTheme.Text;
             history.BorderStyle = BorderStyle.None;
-            history.Font = UiTheme.Font(10F);
-            history.ItemHeight = 33;
+            history.DrawMode = DrawMode.OwnerDrawFixed;
+            history.ItemHeight = 58;
             history.IntegralHeight = false;
-            root.Controls.Add(history, 0, 3);
+            history.Font = UiTheme.Font(10F);
+            history.DrawItem += DrawHistoryItem;
+            historyScrollbar.Dock = DockStyle.Right;
+            historyScrollbar.Width = 12;
+            historyScrollbar.Visible = false;
+            historyScrollbar.ValueChanged += delegate
+            {
+                if (history.Items.Count > 0 && history.TopIndex != historyScrollbar.Value)
+                    history.TopIndex = historyScrollbar.Value;
+            };
+            history.MouseWheel += delegate { BeginInvoke(new Action(UpdateHistoryScroll)); };
+            history.Resize += delegate { UpdateHistoryScroll(); };
+            history.SelectedIndexChanged += delegate { UpdateHistoryScroll(); };
+            historyCard.Controls.Add(history);
+            historyCard.Controls.Add(historyScrollbar);
+            root.Controls.Add(historyCard, 0, 3);
             history.DoubleClick += delegate { ShowTimeline(); };
             history.AccessibleName = english ? "Local game snapshots, double click for timeline" :
                 "Lịch sử lưu game, nhấp đúp để xem diễn biến";
@@ -129,6 +160,7 @@ namespace UmiAchievementClaimer
             bottom.Controls.Add(dismiss, 3, 1);
             root.Controls.Add(bottom, 0, 5);
             Controls.Add(root);
+            UiTheme.StyleButton(dismiss, UmiButtonStyle.Primary);
             dismiss.DialogResult = DialogResult.Cancel;
             CancelButton = dismiss;
             export.Click += ExportCsv;
@@ -160,6 +192,10 @@ namespace UmiAchievementClaimer
                     last.Items.Count(x => x.Unlocked) + "/" + last.Items.Count +
                     "     ·     " + delta + "     ·     " + last.Utc.Substring(0, Math.Min(16, last.Utc.Length)) + " UTC");
             }
+            gamesMetric.Text = games.ToString();
+            unlockedMetric.Text = unlocked + " / " + total;
+            snapshotsMetric.Text = count.ToString();
+            UpdateHistoryScroll();
             summary.Text = (english ? "GAMES  " : "GAME  ") + games +
                 "          " + (english ? "UNLOCKED  " : "ĐÃ MỞ  ") + unlocked + "/" + total +
                 "          " + (english ? "SNAPSHOTS  " : "BẢN LƯU  ") + count +
@@ -176,6 +212,56 @@ namespace UmiAchievementClaimer
             if (history.Items.Count == 0)
                 history.Items.Add(english ? "No snapshots yet. Scan a Steam game to start." :
                     "Chưa có bản lưu. Quét một game Steam để bắt đầu.");
+        }
+
+        private Control MetricCard(string heading, Label value, int index)
+        {
+            Panel card = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.Surface,
+                Margin = new Padding(index == 0 ? 0 : 5, 0, index == 2 ? 0 : 5, 0),
+                Padding = new Padding(17, 12, 12, 10) };
+            Label caption = new Label { Dock = DockStyle.Top, Height = 24,
+                ForeColor = UiTheme.MutedText, Font = UiTheme.Font(8.5F, FontStyle.Bold),
+                Text = heading };
+            value.Dock = DockStyle.Fill;
+            value.Font = UiTheme.DisplayFont(22F, FontStyle.Bold);
+            value.ForeColor = index == 1 ? UiTheme.Success : (index == 2 ? UiTheme.Cyan : UiTheme.Text);
+            value.TextAlign = ContentAlignment.MiddleLeft;
+            card.Controls.Add(value);
+            card.Controls.Add(caption);
+            return card;
+        }
+
+        private void DrawHistoryItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0 || e.Index >= history.Items.Count) return;
+            string raw = history.Items[e.Index].ToString();
+            bool selected = (e.State & DrawItemState.Selected) != 0;
+            using (SolidBrush brush = new SolidBrush(selected ? UiTheme.SurfaceMuted : UiTheme.Surface))
+                e.Graphics.FillRectangle(brush, e.Bounds);
+            using (Pen border = new Pen(UiTheme.Border))
+                e.Graphics.DrawLine(border, e.Bounds.Left + 10, e.Bounds.Bottom - 1,
+                    e.Bounds.Right - 10, e.Bounds.Bottom - 1);
+            string[] parts = raw.Split(new[] { "     " }, 2, StringSplitOptions.None);
+            Rectangle first = new Rectangle(e.Bounds.Left + 12, e.Bounds.Top + 8, e.Bounds.Width - 24, 25);
+            Rectangle second = new Rectangle(e.Bounds.Left + 12, e.Bounds.Top + 32, e.Bounds.Width - 24, 20);
+            using (Font title = UiTheme.DisplayFont(10.5F, FontStyle.Bold))
+            using (Font body = UiTheme.Font(9F))
+            {
+                TextRenderer.DrawText(e.Graphics, parts[0], title, first, UiTheme.Text,
+                    TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+                TextRenderer.DrawText(e.Graphics, parts.Length > 1 ? parts[1] :
+                    (english ? "Open a Steam game to start tracking" : "Mở game Steam để bắt đầu"),
+                    body, second, UiTheme.MutedText,
+                    TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+            }
+            e.DrawFocusRectangle();
+        }
+
+        private void UpdateHistoryScroll()
+        {
+            if (history.IsDisposed) return;
+            int visible = Math.Max(1, history.ClientSize.Height / Math.Max(1, history.ItemHeight));
+            historyScrollbar.SetRange(0, Math.Max(0, history.Items.Count - 1), visible, history.TopIndex);
         }
 
         private void ShowTimeline()
