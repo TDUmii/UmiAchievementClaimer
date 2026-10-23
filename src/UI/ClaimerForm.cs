@@ -1019,7 +1019,15 @@ internal sealed class ClaimerForm : Form
     {
         logExpanded = expanded;
         float scale = Font.Height / 15F;
-        pageLayout.RowStyles[2].Height = (expanded ? (ClientSize.Height / scale < 720 ? 100F : ClientSize.Height / scale < 810 ? 156F : 205F) : 56F) * scale;
+        float desired = (ClientSize.Height / scale < 720 ? 100F : ClientSize.Height / scale < 810 ? 156F : 205F) * scale;
+        // Reserve the full toolbar/footer and at least one achievement row before expanding diagnostics.
+        float minimumAchievementHeight = achievementCard.Padding.Vertical + 49F + 54F + 30F + 65F +
+            Math.Max(54, achievementList.RowTemplate.Height);
+        float availableLogHeight = pageLayout.ClientSize.Height - pageLayout.Padding.Vertical - 206F -
+            minimumAchievementHeight;
+        pageLayout.RowStyles[2].Height = expanded
+            ? Math.Max(56F, Math.Min(desired, availableLogHeight))
+            : 56F * scale;
         logBox.Visible = expanded;
         logViewport.Visible = expanded;
         if (expanded) BeginInvoke(new Action(LayoutLog));
