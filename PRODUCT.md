@@ -36,3 +36,10 @@ See [DESIGN.md](DESIGN.md) for the shipped visual system, [README.md](README.md)
 - **Rescan** is disabled when no valid folder has been selected. Search, filters, selection and Claim remain explicit.
 - **Ctrl+L**, **Ctrl+F** and **F5** speed up common workflows. The empty state shows the next step and activity-log expansion preserves an achievement row even at the minimum window size.
 - Client-only synthetic UI tests do not establish real Steam claim support or accessibility across every physical display.
+
+## Version 1.10.0 safety and convenience
+
+- No automatic Claim, retry or recovery after a cancelled/timed-out write operation. Verification is limited to readback via the local Steam API; no claim about remote-server persistence.
+- Preflight is read-only; worker timeouts are 90 seconds (list) and 120 seconds (selected claim).
+- Favorites/recent games persist only numeric AppIDs. Achievement sorting does not modify selected items.
+- A reproducible Windows portable package and tag-triggered GitHub Actions workflow support release preparation. Public release is not equivalent to Steam compatibility certification.

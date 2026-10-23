@@ -1,3 +1,25 @@
+## 1.10.0 - 2026-10-23 (local build, not yet released)
+
+### Steam reliability and safety
+
+- New read-only compatibility preflight for Steam process, game root, numeric AppID, API source, target architecture and compatibility-provider warnings.
+- A visible cancel action and bounded worker runtime (90 seconds for reading; 120 seconds for a claim). Interrupted changes are reported as uncertain; no automatic claim retry.
+- Parse worker `VERIFIED_COUNT` and per-achievement acceptance lines, show clear local readback counts and distinguish local verification from Steam server synchronization.
+
+### User experience
+
+- Favorites-only and recently used ordering in the installed-game picker, saving only AppIDs to local AppData.
+- Achievement sort modes: original, A-Z, locked first, unlocked first.
+- Read-only achievement inspector with status, ID, name, artwork and description.
+- Main toolbar/inspector updated after visual QA while retaining Steam Midnight design and bilingual strings.
+
+### Build and quality
+
+- Portable ZIP and SHA-256 manifest via `tools/package-release.ps1`.
+- GitHub Actions Windows build, synthetic UI regression and upload-artifact; GitHub Release publication on an explicit version tag.
+- Expanded native synthetic UI regressions: **98 PASS, 0 FAIL** on the development PC.
+- No live Steam achievement claim or account modification performed by QA.
+
 ## Unreleased - Steam Library & UX completion (2026-10-23)
 
 - Added a searchable installed-game picker (**My games / Thư viện**) using local Steam appmanifests and libraryfolders, with explicit manual-folder fallback.

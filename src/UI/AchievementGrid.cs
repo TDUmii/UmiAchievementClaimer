@@ -13,6 +13,7 @@ internal sealed class AchievementGrid : DataGridView
     private readonly HashSet<AchievementItem> checkedItems = new HashSet<AchievementItem>();
     private string query = string.Empty;
     private int filter;
+    private int sortMode;
     private bool english = true;
     private bool updating;
     private Font titleFont;
@@ -110,6 +111,7 @@ internal sealed class AchievementGrid : DataGridView
     }
 
     public int VisibleCount { get { return Rows.Count; } }
+    public int SortMode { get { return sortMode; } set { sortMode = Math.Max(0, Math.Min(3, value)); ApplyFilter(query, filter); } }
 
     public void ScrollBy(int delta)
     {
@@ -200,9 +202,12 @@ internal sealed class AchievementGrid : DataGridView
         try
         {
             Rows.Clear();
-            foreach (AchievementItem item in Items)
-                if (Matches(item))
-                    AddRow(item);
+            IEnumerable<AchievementItem> result = Items.Where(Matches);
+            if (sortMode == 1) result = result.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase);
+            if (sortMode == 2) result = result.OrderBy(x => x.Achieved).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase);
+            if (sortMode == 3) result = result.OrderByDescending(x => x.Achieved).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase);
+            foreach (AchievementItem item in result)
+                AddRow(item);
             foreach (DataGridViewRow row in Rows)
                 if (ReferenceEquals(row.Tag, current))
                 {

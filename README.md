@@ -22,6 +22,18 @@ The interface prioritizes three actions: **choose a game → review/select achie
 - **Diagnostics:** collapsible Activity log with Copy log, enlarged readable log text, themed scrolling and expandable Steam API details.
 - **Appearance:** Steam Midnight, Carbon, Arcade and custom accent themes, plus English/Vietnamese controls in Settings.
 
+### Version 1.10.0: Reliability and workflow updates
+
+- Preflight checks Steam process, installation folder, AppID, API source, and worker architecture without changing achievements.
+- Running worker operations can be cancelled. List operations time out after 90 seconds; selected claims after 120 seconds. Interrupted outcomes are reported as uncertain and never automatically retried.
+- Claim completion distinguishes locally verified Steam API status from accepted requests; it does not prove server synchronization.
+- Double-click an achievement to inspect its description, API ID, status and artwork.
+- Installed-game library now includes Favorites, Favorites-only, and recently-used ordering. It persists AppIDs only.
+- Achievements can be sorted by name, locked first or unlocked first, while preserving explicit selection.
+- Run tools/package-release.ps1 to package the tested portable EXE. GitHub Actions builds and tests, publishing only for explicit version tags.
+
+See the quality-gate report in docs/QA_V1_10.md. Tests use synthetic data, not live Steam claims.
+
 ### Searchable installed-game library
 
 ![Steam library picker with searchable installed games](docs/images/steam-library-en.png)
@@ -46,7 +58,7 @@ Local development build checked on **October 23, 2026**:
 
 | Item | Local value |
 |---|---|
-| Product version reported by the project | `1.9.0` (base version; UI changes not yet published as a new release) |
+| Product version reported by the project | `1.10.0` (local build; public release not yet published) |
 | Executable | `dist\UmiAchievementClaimer.exe` (latest tested build) |
 | Size | Varies by build; check the latest `dist` executable |
 | SHA-256 | See `SHA256SUMS.txt` after the latest build |
@@ -126,7 +138,7 @@ The build places the newest executable in `dist\UmiAchievementClaimer.exe` and a
 .\tests\run-ui.ps1 -SkipBuild
 ```
 
-The latest local UI run completed **83 PASS / 0 FAIL** (October 23, 2026). The suite exercises synthetic game data, filtering, selection persistence, confirmation safety, settings, window geometry, and generated renders. It **does not** claim real Steam achievements or prove compatibility with any individual game. The 150% UI check simulates scaling rather than using a physical high-DPI screen. Native title-bar compositing is not captured by `DrawToBitmap`.
+The latest local UI run completed **98 PASS / 0 FAIL** (October 23, 2026). The suite exercises synthetic game data, filtering, selection persistence, confirmation safety, settings, window geometry, and generated renders. It **does not** claim real Steam achievements or prove compatibility with any individual game. The 150% UI check simulates scaling rather than using a physical high-DPI screen. Native title-bar compositing is not captured by `DrawToBitmap`.
 
 Render outputs are written to the ignored `.impeccable/review/` directory. The checked-in README screenshots were copied from those render outputs and show the current design without bundling Steam artwork into the application.
 
@@ -218,7 +230,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\tests\run-ui.ps1
 ```
 
-Kết quả kiểm thử UI gần nhất trên máy phát triển: **83 PASS, 0 FAIL** (ngày 23/10/2026). Đây là bài kiểm thử với dữ liệu giả lập, **không phải** chứng nhận tính tương thích claim với mọi game Steam. File EXE trên máy sau lần build được ghi checksum trong `SHA256SUMS.txt`.
+Kết quả kiểm thử UI gần nhất trên máy phát triển: **98 PASS, 0 FAIL** (ngày 23/10/2026). Đây là bài kiểm thử với dữ liệu giả lập, **không phải** chứng nhận tính tương thích claim với mọi game Steam. File EXE trên máy sau lần build được ghi checksum trong `SHA256SUMS.txt`.
 
 ## Lưu ý an toàn
 

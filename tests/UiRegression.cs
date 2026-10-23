@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -250,6 +251,14 @@ internal static class UiRegression
                 "\"AppState\" { \"appid\" \"NOT_NUMERIC\" \"installdir\" \"Missing\" }", Encoding.UTF8);
 
             Type catalogType = application.GetType("UmiAchievementClaimer.SteamLibraryCatalog");
+            AppDomain.CurrentDomain.SetData("UmiAchievementClaimer.TestLibraryPath",
+                Path.Combine(root, "synthetic-library-preferences.txt"));
+            Type preflightType = application.GetType("UmiAchievementClaimer.SteamPreflight");
+            object preflight = preflightType.GetMethod("Inspect", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+                .Invoke(null, new object[] { null, false });
+            Check(((IEnumerable)preflight).Cast<string>().Count() == 2,
+                "read-only preflight explains missing Steam and missing game");
+
             object result = catalogType.GetMethod("FromLibraries", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
                 .Invoke(null, new object[] { new string[] { root, root, Path.Combine(root, "missing") } });
             object[] found = ((IEnumerable)result).Cast<object>().ToArray();
@@ -272,6 +281,15 @@ internal static class UiRegression
                 ListBox list = (ListBox)Field(dialog, "games");
                 TextBox query = (TextBox)Field(dialog, "query");
                 Check(list.Items.Count == 2, "Steam game picker shows installed game list");
+                Button favorite = (Button)Field(dialog, "favorite");
+                Button favoritesOnly = (Button)Field(dialog, "favoritesOnly");
+                favorite.PerformClick();
+                favoritesOnly.PerformClick();
+                Check(list.Items.Count == 1 &&
+                    ((string)Field(list.Items[0], "AppId")) == "620",
+                    "favorites-only Steam picker retains only favorited game");
+                favoritesOnly.PerformClick();
+                Check(list.Items.Count == 2, "favorites filter restores full installed library");
                 query.Text = "NOT_FOUND";
                 Check(list.Items.Count == 0 && !Control(dialog, "choose").Enabled, "Steam game picker has empty-search and safe-disabled selection");
                 query.Text = "620";
@@ -305,6 +323,7 @@ internal static class UiRegression
         finally
         {
             try { if (Directory.Exists(root)) Directory.Delete(root, true); } catch { }
+            AppDomain.CurrentDomain.SetData("UmiAchievementClaimer.TestLibraryPath", null);
         }
     }
 
@@ -346,6 +365,8 @@ internal static class UiRegression
                 Check(Control(form, "appIdValue").Height >= 18 && Control(form, "architectureValue").Height >= 18,
                     "Steam game metadata values have enough vertical space");
                 Check(Control(form, "emptyLabel").Visible && Visible(grid) == 0, "initial empty state");
+                Check(Control(form, "preflightButton").Enabled && !Control(form, "cancelWorkerButton").Visible,
+                    "preflight available while no worker is active and cancel hidden");
 
                 Capture(form, "empty-en.png");
 
@@ -371,6 +392,19 @@ internal static class UiRegression
                 Check(Control(form, "achievementProgressFill").Width > 0 &&
                     Control(form, "achievementProgressFill").Width < Control(form, "achievementProgressTrack").Width,
                     "achievement progress stripe reflects partial unlock rate");
+                SetProperty(grid, "SortMode", 1);
+                Check((string)Field(table.Rows[0].Tag, "Id") == "LONG_NAME",
+                    "achievement sort A-Z orders by display name");
+                SetProperty(grid, "SortMode", 2);
+                Check(!(bool)Field(table.Rows[0].Tag, "Achieved") &&
+                    (bool)Field(table.Rows[table.Rows.Count - 1].Tag, "Achieved"),
+                    "achievement locked-first sort prioritizes locked items");
+                SetProperty(grid, "SortMode", 3);
+                Check((bool)Field(table.Rows[0].Tag, "Achieved"),
+                    "achievement unlocked-first sort prioritizes unlocked items");
+                SetProperty(grid, "SortMode", 0);
+                Check((string)Field(table.Rows[0].Tag, "Id") == "FIRST_STEPS",
+                    "default order restored without losing achievements");
 
                 search.Text = "explorer"; Check(Visible(grid) == 1, "search by title ignores case");
                 Check(!Control(form, "searchPlaceholderLabel").Visible, "search placeholder hides when filled");
@@ -387,6 +421,11 @@ internal static class UiRegression
                 ((Button)Field(form, "selectionMenuButton")).PerformClick();
                 ContextMenuStrip menu = (ContextMenuStrip)Field(form, "selectionMenu");
                 Check(menu.Items.Count == 3 && menu.Renderer != null, "selection menu exposes three themed actions");
+                ((Button)Field(form, "sortButton")).PerformClick();
+                ContextMenuStrip sortMenu = (ContextMenuStrip)Field(form, "sortMenu");
+                Check(sortMenu.Items.Count == 4 && sortMenu.Renderer != null,
+                    "sort menu provides four themed sorting modes");
+                sortMenu.Close();
                 menu.Close();
                 search.Text = "Explorer";
                 Check(Checked(grid).Length == 1 && Control(form, "selectedCountLabel").Text.Contains("1 hidden"), "filter preserves and discloses hidden selections");
@@ -406,9 +445,45 @@ internal static class UiRegression
                 Check(selectedIds.SequenceEqual(new[] { "FIRST_STEPS", "MASTER_EXPLORER" }), "selection file contains only the explicitly selected API IDs");
                 Call(form, "CleanupWorker"); Check(!File.Exists(selectionPath), "temporary selection file cleaned up");
                 Check(Field(form, "workerProcess") == null, "UI and serialization checks never start a worker");
+                for (int scenario = 0; scenario < 2; scenario++)
+                {
+                    using (Process fakeWorker = new Process())
+                    {
+                        fakeWorker.StartInfo = new ProcessStartInfo
+                        {
+                            FileName = "powershell.exe",
+                            Arguments = "-NoProfile -NonInteractive -Command Start-Sleep -Seconds 15",
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+                        fakeWorker.Start();
+                        Set(form, "workerProcess", fakeWorker);
+                        Call(form, "StopWorker", scenario == 0);
+                        bool stopped = fakeWorker.WaitForExit(5000);
+                        Check(stopped && (string)Field(form, "workerStopReason") ==
+                            (scenario == 0 ? "timeout" : "cancelled"),
+                            scenario == 0 ? "worker timeout terminates synthetic process" :
+                                "manual cancellation terminates synthetic process");
+                        Set(form, "workerProcess", null);
+                        Set(form, "workerStopReason", null);
+                    }
+                }
+
+                var outputCtor = typeof(DataReceivedEventArgs).GetConstructor(
+                    BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(string) }, null);
+                Check(outputCtor != null, "worker output protocol fixture can be constructed");
+                if (outputCtor != null)
+                {
+                    Call(form, "WorkerOutput", null, outputCtor.Invoke(new object[] { "VERIFIED_COUNT=3" }));
+                    Call(form, "WorkerOutput", null, outputCtor.Invoke(new object[] { "[OK]   FIRST_STEPS" }));
+                    Check((int)Field(form, "lastVerifiedCount") == 3 &&
+                        (int)Field(form, "lastAcceptedCount") == 1,
+                        "claim verification report tracks verified and accepted results separately");
+                    Application.DoEvents();
+                }
 
                 Call(form, "SetBusy", true);
-                string[] busyControls = { "libraryButton", "browseButton", "pathBox", "languageToggleButton", "themeButton", "settingsButton", "searchBox", "achievementList", "selectAllButton", "selectLockedButton", "clearSelectionButton", "selectionMenuButton", "claimButton" };
+                string[] busyControls = { "preflightButton", "sortButton", "libraryButton", "browseButton", "pathBox", "languageToggleButton", "themeButton", "settingsButton", "searchBox", "achievementList", "selectAllButton", "selectLockedButton", "clearSelectionButton", "selectionMenuButton", "claimButton" };
                 Check(busyControls.All(name => !Control(form, name).Enabled) && filters.All(button => !button.Enabled), "busy state locks game, language, filters and selection");
                 Call(form, "SetBusy", false);
                 Check(busyControls.All(name => Control(form, name).Enabled) && filters.All(button => button.Enabled)
@@ -417,6 +492,10 @@ internal static class UiRegression
                 Report("browse", Control(form, "browseButton")); Report("scan", Control(form, "scanButton"));
                 Report("filter-all", filters[0]); Report("desktop-grid", table);
                 Check(SingleRowsFit(form), "all single-row layout children fit their parents");
+                Report("sort-control", Control(form, "sortButton"));
+                Check(Inside(form, Control(form, "sortButton")) &&
+                    Control(form, "sortButton").Text.Contains("Sort:"),
+                    "achievement sorting button visible and labeled in main workspace");
                 Capture(form, "desktop-en.png");
                 File.Copy(Path.Combine(output, "desktop-en.png"), Path.Combine(output, "hero-repro.png"), true);
 
@@ -457,6 +536,15 @@ internal static class UiRegression
                     Check(confirmation.AcceptButton.DialogResult == DialogResult.Cancel, "default action has Cancel result");
                     Check(SingleRowsFit(confirmation), "confirmation action buttons fit their layout row");
                     Capture(confirmation, "confirmation-en.png");
+                    using (Form inspect = (Form)Activator.CreateInstance(application.GetType("UmiAchievementClaimer.AchievementInspector"),
+                        BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance, null,
+                        new object[] { items[0], null, true }, null))
+                    {
+                        Prepare(inspect);
+                        Check(SingleRowsFit(inspect) && inspect.Controls.Count > 0,
+                            "achievement inspector displays read-only details without altering claim selection");
+                        Capture(inspect, "achievement-inspector-en.png");
+                    }
                     confirmation.AcceptButton.PerformClick();
                     Check(confirmation.DialogResult == DialogResult.Cancel, "default action cancels confirmation");
                 }

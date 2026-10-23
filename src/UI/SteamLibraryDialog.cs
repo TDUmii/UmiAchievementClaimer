@@ -25,6 +25,9 @@ namespace UmiAchievementClaimer
         private readonly Label count = new Label();
         private readonly Button choose = new UmiButton();
         private readonly Button manual = new UmiButton();
+        private readonly Button favorite = new UmiButton();
+        private readonly Button favoritesOnly = new UmiButton();
+        private bool showFavoritesOnly;
         private readonly Button cancel = new UmiButton();
         private List<SteamInstalledGame> allGames = new List<SteamInstalledGame>();
         private readonly Font gameTitleFont = UiTheme.DisplayFont(11F, FontStyle.Bold);
@@ -110,7 +113,7 @@ namespace UmiAchievementClaimer
             games.Font = UiTheme.Font(10F);
             games.AccessibleName = english ? "Installed Steam games" : "Danh sách game Steam";
             games.DrawItem += DrawGame;
-            games.SelectedIndexChanged += delegate { choose.Enabled = games.SelectedItem != null; UpdateLibraryScroll(); };
+            games.SelectedIndexChanged += delegate { choose.Enabled = games.SelectedItem != null; UpdateLibraryScroll(); UpdateFavoriteButton(); };
             games.Resize += delegate { UpdateLibraryScroll(); };
             games.MouseWheel += delegate { BeginInvoke(new Action(UpdateLibraryScroll)); };
             games.KeyUp += delegate { UpdateLibraryScroll(); };
@@ -139,20 +142,43 @@ namespace UmiAchievementClaimer
             scrollingContent.Controls.Add(games);
             scrollingContent.Controls.Add(libraryScroll);
             listPanel.Controls.Add(scrollingContent);
-            listPanel.Controls.Add(count);
+            Panel counterRow = new Panel { Dock = DockStyle.Bottom, Height = 30 };
+            UiTheme.StyleButton(favoritesOnly, UmiButtonStyle.Ghost);
+            favoritesOnly.Dock = DockStyle.Right;
+            favoritesOnly.Width = 136;
+            favoritesOnly.Click += delegate { showFavoritesOnly = !showFavoritesOnly; Filter(); };
+            count.Dock = DockStyle.Fill;
+            counterRow.Controls.Add(count);
+            counterRow.Controls.Add(favoritesOnly);
+            listPanel.Controls.Add(counterRow);
             layout.Controls.Add(listPanel, 0, 3);
 
-            TableLayoutPanel actions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Margin = new Padding(0, 14, 0, 0) };
+            TableLayoutPanel actions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, Margin = new Padding(0, 14, 0, 0) };
             actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 125));
             actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 142));
             actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 142));
             actions.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             UiTheme.StyleButton(manual, UmiButtonStyle.Ghost);
+            UiTheme.StyleButton(favorite, UmiButtonStyle.Ghost);
+            favorite.Width = 125;
+            favorite.AccessibleName = english ? "Toggle favorite for selected game" : "Đánh dấu game yêu thích";
+            favorite.Click += delegate
+            {
+                SteamInstalledGame current = games.SelectedItem as SteamInstalledGame;
+                if (current == null) return;
+                GameLibraryPreferences.ToggleFavorite(current.AppId);
+                Filter();
+                for (int i = 0; i < games.Items.Count; i++)
+                    if (((SteamInstalledGame)games.Items[i]).AppId == current.AppId) { games.SelectedIndex = i; break; }
+                UpdateFavoriteButton();
+            };
             UiTheme.StyleButton(cancel, UmiButtonStyle.Secondary);
             UiTheme.StyleButton(choose, UmiButtonStyle.Primary);
-            manual.Dock = cancel.Dock = choose.Dock = DockStyle.Fill;
+            manual.Dock = favorite.Dock = cancel.Dock = choose.Dock = DockStyle.Fill;
             manual.Margin = new Padding(0, 0, 8, 0);
             cancel.Margin = new Padding(0, 0, 8, 0);
+            favorite.Margin = new Padding(0, 0, 8, 0);
             choose.Margin = new Padding(0);
             manual.Text = english ? "Browse folder instead" : "Chọn thư mục thủ công";
             cancel.Text = english ? "Cancel" : "Hủy";
@@ -162,8 +188,9 @@ namespace UmiAchievementClaimer
             manual.Click += delegate { DialogResult = DialogResult.Retry; Close(); };
             choose.Click += delegate { ChooseSelected(); };
             actions.Controls.Add(manual, 0, 0);
-            actions.Controls.Add(cancel, 1, 0);
-            actions.Controls.Add(choose, 2, 0);
+            actions.Controls.Add(favorite, 1, 0);
+            actions.Controls.Add(cancel, 2, 0);
+            actions.Controls.Add(choose, 3, 0);
             layout.Controls.Add(actions, 0, 4);
             Controls.Add(layout);
             AcceptButton = choose;
@@ -196,7 +223,12 @@ namespace UmiAchievementClaimer
             string search = query.Text.Trim();
             games.BeginUpdate();
             games.Items.Clear();
-            foreach (SteamInstalledGame game in allGames)
+            IEnumerable<SteamInstalledGame> ordered = allGames
+                .Where(x => !showFavoritesOnly || GameLibraryPreferences.IsFavorite(x.AppId))
+                .OrderByDescending(x => GameLibraryPreferences.IsFavorite(x.AppId))
+                .ThenBy(x => GameLibraryPreferences.RecentRank(x.AppId))
+                .ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase);
+            foreach (SteamInstalledGame game in ordered)
             {
                 if (search.Length == 0 ||
                     game.Name.IndexOf(search, StringComparison.CurrentCultureIgnoreCase) >= 0 ||
@@ -206,10 +238,24 @@ namespace UmiAchievementClaimer
             games.EndUpdate();
             if (games.Items.Count > 0) games.SelectedIndex = 0;
             choose.Enabled = games.SelectedItem != null;
+            favoritesOnly.Text = showFavoritesOnly
+                ? (english ? "★ All games" : "★ Tất cả")
+                : (english ? "☆ Favorites" : "☆ Yêu thích");
+            UpdateFavoriteButton();
             UpdateLibraryScroll();
             count.Text = allGames.Count == 0
                 ? (english ? "No installed games found. Choose a folder manually." : "Không thấy game đã cài. Hãy chọn thư mục thủ công.")
                 : string.Format(english ? "{0} of {1} installed games" : "{0}/{1} game đã cài", games.Items.Count, allGames.Count);
+        }
+
+        private void UpdateFavoriteButton()
+        {
+            SteamInstalledGame current = games.SelectedItem as SteamInstalledGame;
+            favorite.Enabled = current != null;
+            favorite.Text = current == null ? (english ? "☆ Favorite" : "☆ Yêu thích")
+                : GameLibraryPreferences.IsFavorite(current.AppId)
+                    ? (english ? "★ Favorited" : "★ Đã thích")
+                    : (english ? "☆ Favorite" : "☆ Yêu thích");
         }
 
         private void UpdateLibraryScroll()
@@ -230,7 +276,8 @@ namespace UmiAchievementClaimer
                 e.Graphics.DrawLine(line, e.Bounds.Left + 8, e.Bounds.Bottom - 1, e.Bounds.Right - 8, e.Bounds.Bottom - 1);
             Rectangle name = new Rectangle(e.Bounds.Left + 15, e.Bounds.Top + 9, e.Bounds.Width - 30, 25);
             Rectangle meta = new Rectangle(e.Bounds.Left + 15, e.Bounds.Top + 36, e.Bounds.Width - 30, 22);
-            TextRenderer.DrawText(e.Graphics, game.Name, gameTitleFont, name,
+            string displayedName = GameLibraryPreferences.IsFavorite(game.AppId) ? "★  " + game.Name : game.Name;
+            TextRenderer.DrawText(e.Graphics, displayedName, gameTitleFont, name,
                 UiTheme.Text, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
             TextRenderer.DrawText(e.Graphics, "APP " + game.AppId + "    •    " + game.Folder, gameMetaFont, meta,
                 selected ? UiTheme.Cyan : UiTheme.MutedText,
@@ -243,6 +290,7 @@ namespace UmiAchievementClaimer
             SteamInstalledGame selected = games.SelectedItem as SteamInstalledGame;
             if (selected == null) return;
             SelectedPath = selected.Folder;
+            GameLibraryPreferences.MarkRecent(selected.AppId);
             DialogResult = DialogResult.OK;
             Close();
         }
