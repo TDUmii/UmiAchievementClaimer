@@ -1,6 +1,6 @@
 # Steam Midnight v2 screenshot provenance
 
-These screenshot files are rendered from **the current local WinForms UI** by `tests/UiRegression.cs` (last checked October 22, 2026).
+These screenshot files are rendered from **the current local WinForms UI** by `tests/UiRegression.cs` (last checked October 23, 2026).
 
 - `steam-midnight-v2.png` — copied from `.impeccable/review/artwork-client.png`; 1220 x 840 client-area render. Shows **Portal 2** cover and achievement icons obtained from public Steam metadata/CDN, but the game identity text, installation path, achievement entries and states are **synthetic UI test fixtures**, not a real account session.
 - `steam-midnight-v2-log.png` — copied from `.impeccable/review/artwork-minimum-details-log-client.png`; 1024 x 721 client-area render with technical details and activity log expanded at minimum-size layout.
@@ -10,3 +10,11 @@ The screenshots use the current horizontal game summary / unified achievement to
 The rendered images do not contain the compositor-rendered native Windows titlebar. The Steam artwork is downloaded for UI verification and is **not packaged** as an asset inside the compiled application.
 
 For historical reference, `steam-midnight.png` and `steam-midnight.sources.md` describe the previous UI design, which is no longer used in the main README preview.
+
+
+## 2026-10-23 visual regression refresh
+
+- The Steam Midnight v2 and expanded-log screenshots were regenerated after adding the My games / Browse / Rescan row and fixing minimum-height log behavior.
+- `steam-library-en.png` was rendered from a two-game synthetic manifest fixture, with no real account identity.
+- `steam-library-overflow-en.png` was rendered from a 24-game synthetic list and verifies the themed scrollbar instead of the native white scrollbar.
+- Source test harness: `tests/UiRegression.cs`. UI regression result: 83 PASS, 0 FAIL. Native Windows frame pixels, physical DPI and real Steam claim workflows are outside the render tests.

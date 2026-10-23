@@ -1,3 +1,14 @@
+## Unreleased - Steam Library & UX completion (2026-10-23)
+
+- Added a searchable installed-game picker (**My games / Thư viện**) using local Steam appmanifests and libraryfolders, with explicit manual-folder fallback.
+- Steam library discovery runs asynchronously; the game's Steam API detection also runs off the UI thread.
+- Added clear first-run empty state, accessible search controls, a dark themed library scrollbar and bilingual labels.
+- Added Ctrl+L (library), Ctrl+F (achievement search), F5 (rescan) keyboard shortcuts.
+- Made the expanded Activity log retain at least one achievement row at minimum supported window dimensions.
+- Updated build handling: an EXE locked by Windows no longer aborts compilation; the newest artifact remains under dist and UI tests always target it.
+- Added synthetic manifest traversal/Unicode/search, picker overflow, themed scrollbar and minimum-size regression coverage.
+- Validation: **83 PASS, 0 FAIL** native synthetic UI tests, independent discovery of 16 locally installed games. Steam claim compatibility and physical DPI not re-certified; no live achievements were claimed.
+
 ## Unreleased - Steam Midnight v2 UI
 
 - Replaced the fixed game sidebar with a full-width horizontal game summary, including game metadata, unlock progress and folder controls.

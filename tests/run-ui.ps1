@@ -4,7 +4,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectRoot
 try {
     if (-not $SkipBuild) { & (Join-Path $projectRoot 'build.ps1') }
-    $application = Join-Path $projectRoot 'UmiAchievementClaimer.exe'
+    $application = Join-Path $projectRoot 'dist\\UmiAchievementClaimer.exe'
     if (-not (Test-Path -LiteralPath $application)) { throw "Build the application first: $application" }
     $buildDirectory = Join-Path $projectRoot 'build'
     New-Item -ItemType Directory -Force -Path $buildDirectory | Out-Null

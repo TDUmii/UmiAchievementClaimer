@@ -20,6 +20,7 @@ internal sealed class AchievementGrid : DataGridView
     public event EventHandler ChecksChanged;
     public event EventHandler SelectedItemChanged;
     public Func<AchievementItem, Image> ArtworkProvider { get; set; }
+    public string EmptyStateMessage { get; set; }
 
     public AchievementGrid()
     {
@@ -84,6 +85,18 @@ internal sealed class AchievementGrid : DataGridView
             if (!updating && SelectedItemChanged != null)
                 SelectedItemChanged(this, EventArgs.Empty);
         };
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        if (Rows.Count == 0 && !string.IsNullOrEmpty(EmptyStateMessage) && ClientSize.Height >= 45)
+        {
+            Rectangle textArea = new Rectangle(24, 8, Math.Max(1, ClientSize.Width - 48), Math.Max(1, ClientSize.Height - 16));
+            using (Font font = UiTheme.DisplayFont(11.5F))
+                TextRenderer.DrawText(e.Graphics, EmptyStateMessage, font, textArea, UiTheme.MutedText,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+        }
     }
 
     public IEnumerable<AchievementItem> CheckedItems
