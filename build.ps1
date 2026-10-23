@@ -69,18 +69,10 @@ $win32Icon = '/win32icon:' + $icon
     $applicationSources
 if ($LASTEXITCODE -ne 0) { throw "Application compilation failed with exit code $LASTEXITCODE" }
 
-$releaseArtifact = $packageApplication
-try {
-    Copy-Item -LiteralPath $application -Destination $packageApplication -Force -ErrorAction Stop
-}
-catch {
-    Write-Warning "Repository-root EXE is in use. New build is ready in dist\\UmiAchievementClaimer.exe."
-    $releaseArtifact = $application
-}
-
-$hash = Get-FileHash -Algorithm SHA256 -LiteralPath $releaseArtifact
-$checksumName = if ($releaseArtifact -eq $packageApplication) { 'UmiAchievementClaimer.exe' } else { 'dist/UmiAchievementClaimer.exe' }
+# Keep one canonical EXE under dist; do not duplicate an outdated executable
+# in the repository root and never overwrite a running application.
+$hash = Get-FileHash -Algorithm SHA256 -LiteralPath $application
 $checksumPath = Join-Path $projectRoot 'SHA256SUMS.txt'
-[IO.File]::WriteAllText($checksumPath, $hash.Hash + '  ' + $checksumName + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
-Write-Host "Build complete: $releaseArtifact"
+[IO.File]::WriteAllText($checksumPath, $hash.Hash + '  dist/UmiAchievementClaimer.exe' + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+Write-Host "Build complete: $application"
 Write-Host "SHA-256: $($hash.Hash)"

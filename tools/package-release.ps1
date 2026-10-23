@@ -52,6 +52,20 @@ try {
     ), [Text.UTF8Encoding]::new($false))
     Write-Host "Portable release prepared: $output"
     Write-Host "Checksums: $checksumPath"
+
+    # Only after the newest archive and checksums exist, discard older
+    # locally generated versions. Git retains source history and CI artifacts.
+    Get-ChildItem -LiteralPath (Join-Path $projectRoot 'dist') -Filter 'UmiAchievementClaimer-v*-windows-x64-portable.zip' -File |
+        Where-Object { $_.FullName -ne $output } |
+        ForEach-Object {
+            try {
+                Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop
+                Write-Host ("Removed obsolete portable build: " + $_.Name)
+            }
+            catch {
+                Write-Warning ("Could not remove obsolete archive " + $_.Name + ": " + $_.Exception.Message)
+            }
+        }
 }
 finally {
     Pop-Location

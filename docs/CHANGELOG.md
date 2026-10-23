@@ -1,3 +1,13 @@
+## 1.11.2 - 2026-10-23
+
+- **Fixed the bottom white line:** the native WinForms ProgressBar was still visible at 1px high while idle. Progress is now hidden until a worker actually starts, with regression coverage for idle/busy/idle.
+- Displays **v1.11.2** in the upper-right header and the application window title, both derived from assembly metadata.
+- Consolidated builds under `dist/UmiAchievementClaimer.exe` and removed the tracked duplicate EXE from the repository root.
+- Successfully packaging the current portable ZIP now prunes obsolete locally generated versioned ZIPs in `dist`. No user profile data is deleted.
+- Rewrote bilingual README to reflect actual v1.11.2 features; retained only current UI screenshots.
+- Local synthetic WinForms regression: **122 PASS / 0 FAIL**. See `docs/QA_V1_11_2_UI.md`.
+
+
 ## 1.11.1 — 2026-10-23 (UI polish)
 
 - Corrected first-click Activity log text color and added a regression before any theme switches.
