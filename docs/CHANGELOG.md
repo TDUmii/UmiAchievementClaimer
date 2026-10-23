@@ -1,3 +1,12 @@
+## 1.11.3 - 2026-10-23
+
+- Replaced native Windows ProgressBar with a small theme-colored Panel to permanently remove its white idle-pixel artifact from the log footer.
+- Reworked Activity log expansion to layout synchronously on the first click, on repeated open/close, and after resize/minimize/restore.
+- Corrected the first-run guidance clipping at minimum window size when the Activity log is expanded.
+- Verified real Windows desktop captures for first-open, reopened, restored and minimum-size log views.
+- Native synthetic UI tests: **126 PASS / 0 FAIL**. See `docs/QA_V1_11_3_UI.md`.
+
+
 ## 1.11.2 - 2026-10-23
 
 - **Fixed the bottom white line:** the native WinForms ProgressBar was still visible at 1px high while idle. Progress is now hidden until a worker actually starts, with regression coverage for idle/busy/idle.

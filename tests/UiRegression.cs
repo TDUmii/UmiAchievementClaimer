@@ -452,11 +452,13 @@ internal static class UiRegression
                 Check(Control(form, "logBox").Visible &&
                     Control(form, "logBox").ForeColor.ToArgb() == Color.FromArgb(235, 241, 250).ToArgb(),
                     "first log click before any theme change draws readable log text");
-                Check(!Control(form, "progress").Visible,
-                    "idle progress control is hidden so no native one-pixel white line appears below log");
-                Check(form.Text.Contains("v1.11.2"), "window caption includes the current assembly version");
+                Check(!Control(form, "progress").Visible &&
+                    Control(form, "progress") is Panel &&
+                    !(Control(form, "progress") is ProgressBar),
+                    "activity indicator is a non-native panel and stays hidden while idle");
+                Check(form.Text.Contains("v1.11.3"), "window caption includes the current assembly version");
                 Control version = Control(form, "versionLabel");
-                Check(version.Text == "v1.11.2" && version.Visible &&
+                Check(version.Text == "v1.11.3" && version.Visible &&
                     version.Parent == Control(form, "versionHost") &&
                     version.Bottom <= version.Parent.ClientSize.Height &&
                     version.Right <= version.Parent.ClientSize.Width,
@@ -468,7 +470,46 @@ internal static class UiRegression
                     " progressParent=" + progressProbe.Parent.ClientSize +
                     " logBottom=" + Control(form, "logCard").Bottom +
                     " formClient=" + form.ClientSize);
+                form.PerformLayout();
+                Application.DoEvents();
+                Control viewport = Control(form, "logViewport");
+                Control log = Control(form, "logBox");
+                Check(viewport.Visible && log.Visible && log.Width > 250 &&
+                    log.Height > 40 && log.Bottom <= viewport.ClientSize.Height &&
+                    log.Right <= viewport.ClientSize.Width,
+                    "first Activity log click synchronously lays out full log text area");
                 Capture(form, "log-first-open-en.png");
+                Size normalSize = form.Size;
+                form.Size = form.MinimumSize;
+                form.PerformLayout();
+                Application.DoEvents();
+                Control guidance = Control(form, "emptyLabel");
+                int textWidth = Math.Max(1, guidance.ClientSize.Width - guidance.Padding.Horizontal);
+                int textHeight = TextRenderer.MeasureText(guidance.Text, guidance.Font,
+                    new Size(textWidth, 500), TextFormatFlags.WordBreak).Height;
+                Check(guidance.Visible && guidance.Padding.Vertical <= 8 &&
+                    guidance.ClientSize.Height - guidance.Padding.Vertical >= textHeight,
+                    "minimum window with Activity log open retains both first-run guidance lines");
+                Capture(form, "log-minimum-first-run-en.png");
+                form.WindowState = FormWindowState.Minimized;
+                Application.DoEvents();
+                form.WindowState = FormWindowState.Normal;
+                form.PerformLayout();
+                Application.DoEvents();
+                Check(Control(form, "logBox").Visible &&
+                    Control(form, "logBox").Bottom <= Control(form, "logViewport").ClientSize.Height,
+                    "expanded Activity log remains contained after minimize and restore");
+                form.Size = normalSize;
+                form.PerformLayout();
+                Application.DoEvents();
+                ((Button)Field(form, "logToggleButton")).PerformClick();
+                ((Button)Field(form, "logToggleButton")).PerformClick();
+                form.PerformLayout();
+                Application.DoEvents();
+                Check(log.Visible && log.Bottom <= viewport.ClientSize.Height &&
+                    !Control(form, "progress").Visible,
+                    "re-opening log after collapse stays within dark viewport without footer seam");
+                Capture(form, "log-reopened-en.png");
                 ((Button)Field(form, "logToggleButton")).PerformClick();
                 object grid = Field(form, "achievementList");
                 DataGridView table = (DataGridView)grid;

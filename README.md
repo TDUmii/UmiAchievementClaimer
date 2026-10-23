@@ -4,7 +4,7 @@
 
 [English](#english) · [Tiếng Việt](#tiếng-việt) · [Build & tests](#build-and-tests) · [Changelog](docs/CHANGELOG.md) · [GitHub Actions](https://github.com/TDUmii/UmiAchievementClaimer/actions)
 
-**Current source version: 1.11.2** · Windows x64 · Portable EXE · English / Tiếng Việt
+**Current source version: 1.11.3** · Windows x64 · Portable EXE · English / Tiếng Việt
 
 > The newest development build is `dist/UmiAchievementClaimer.exe`. GitHub Releases may offer an older version until a release is explicitly tagged. The app displays its exact version at the top-right of the main window and in the window title.
 
@@ -17,6 +17,10 @@
 *Native WinForms client render with synthetic data; this is not a live Steam account or proof that claiming works in a particular game.*
 
 ![Activity log expanded on the first click](docs/images/ui-log.png)
+
+![Expanded log on a smaller window](docs/images/ui-log-small.png)
+
+*The log is re-laid out immediately on opening, closing, resizing and restoring the app. A narrow window keeps the first-run guidance fully legible.*
 
 **What's included**
 
@@ -54,7 +58,7 @@ The canonical executable is always **`dist/UmiAchievementClaimer.exe`**. To crea
 .\tools\package-release.ps1
 ```
 
-This produces `dist/UmiAchievementClaimer-v1.11.2-windows-x64-portable.zip` and `dist/SHA256SUMS.release.txt`. **Only after the new archive is successfully created, older versioned ZIPs in `dist` are deleted.** The build no longer creates a duplicate EXE in the repository root.
+This produces `dist/UmiAchievementClaimer-v1.11.3-windows-x64-portable.zip` and `dist/SHA256SUMS.release.txt`. **Only after the new archive is successfully created, older versioned ZIPs in `dist` are deleted.** The build no longer creates a duplicate EXE in the repository root.
 
 Personal preferences and optional snapshot history reside in `%APPDATA%\UmiAchievementClaimer`. Build cleanup never deletes this data. Snapshot history is scoped by **Windows user profile + Steam AppID**, not Steam account; avoid sharing a Windows profile across Steam accounts if you require account-specific historical comparisons.
 
@@ -70,9 +74,9 @@ cd UmiAchievementClaimer
 .\tools\package-release.ps1 -SkipBuild -SkipTests
 ```
 
-The source build embeds isolated x86/x64 workers in a single Windows desktop EXE. The local **1.11.2 regression suite (122 PASS / 0 FAIL)** includes checks that a hidden idle ProgressBar never leaves a one-pixel line under the Activity log, that the version label matches assembly metadata, and that the progress indicator appears only during work. The suite uses synthetic game and worker data; it **does not** perform a real Claim.
+The source build embeds isolated x86/x64 workers in a single Windows desktop EXE. The local **1.11.3 regression suite (126 PASS / 0 FAIL)** includes checks that the non-native activity strip never paints an idle white line under Activity log, that the version label matches assembly metadata, and that the progress indicator appears only during work. The suite uses synthetic game and worker data; it **does not** perform a real Claim.
 
-See [UI review and test evidence](docs/QA_V1_11_2_UI.md), [Architecture](docs/ARCHITECTURE.md), [Design notes](DESIGN.md), [Product notes](PRODUCT.md) and [Changelog](docs/CHANGELOG.md).
+See [UI review and test evidence](docs/QA_V1_11_3_UI.md), [Architecture](docs/ARCHITECTURE.md), [Design notes](DESIGN.md), [Product notes](PRODUCT.md) and [Changelog](docs/CHANGELOG.md).
 
 ### Safety and limits
 
@@ -84,7 +88,7 @@ Use only with games and accounts you are authorized to access. Steamworks behavi
 
 **Umi Achievement Claimer** là công cụ Windows giúp tìm game Steam đã cài, xem thành tích và chỉ thay đổi các achievement mà người dùng **tự chọn và xác nhận**.
 
-**Phiên bản mã nguồn hiện tại: 1.11.2.** Số phiên bản hiển thị ở góc trên bên phải và trên thanh tiêu đề. File chạy mới nhất nằm tại `dist\UmiAchievementClaimer.exe`, không phải thư mục gốc dự án.
+**Phiên bản mã nguồn hiện tại: 1.11.3.** Số phiên bản hiển thị ở góc trên bên phải và trên thanh tiêu đề. File chạy mới nhất nằm tại `dist\UmiAchievementClaimer.exe`, không phải thư mục gốc dự án.
 
 ### Chức năng
 
@@ -117,4 +121,4 @@ Sau khi tạo gói portable mới thành công, chương trình đóng gói sẽ
 
 **Lưu ý an toàn:** quét không thay đổi thành tích; Claim cần người dùng xác nhận. Một số game không tương thích với Steam API hoặc dùng achievement phía máy chủ. Dữ liệu kiểm thử UI giả lập không chứng minh Claim thành công trên Steam thực tế.
 
-Xem [báo cáo UI 1.11.2](docs/QA_V1_11_2_UI.md) và [lịch sử thay đổi](docs/CHANGELOG.md).
+Xem [báo cáo UI 1.11.3](docs/QA_V1_11_3_UI.md) và [lịch sử thay đổi](docs/CHANGELOG.md).

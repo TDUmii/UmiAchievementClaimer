@@ -91,7 +91,9 @@ internal sealed class ClaimerForm : Form
     private readonly Panel technicalPanel = new Panel();
     private readonly Panel achievementProgressTrack = new Panel();
     private readonly Panel achievementProgressFill = new Panel();
-    private readonly ProgressBar progress = new ProgressBar();
+    // Native Windows ProgressBar paints an unwanted white 1px seam at the log footer.
+    // A regular panel is sufficient for this non-interactive activity indicator.
+    private readonly Panel progress = new Panel();
     private readonly Button languageToggleButton = new UmiButton();
     private readonly Button themeButton = new UmiButton();
     private readonly Button settingsButton = new UmiButton();
@@ -152,6 +154,11 @@ internal sealed class ClaimerForm : Form
         themeButton.Click += OpenSettings;
         settingsButton.Click += OpenSettings;
         UiTheme.Changed += ThemeChanged;
+        SizeChanged += delegate
+        {
+            if (logExpanded && WindowState != FormWindowState.Minimized && IsHandleCreated)
+                SetLogExpanded(true);
+        };
         workerTimer.Interval = 1000;
         workerTimer.Tick += delegate
         {
@@ -300,6 +307,7 @@ internal sealed class ClaimerForm : Form
         BuildLogCard();
         progress.Dock = DockStyle.Fill;
         progress.Margin = new Padding(0);
+        progress.BackColor = UiTheme.Cyan;
         // Critical: a visible native ProgressBar occupies one pixel even when its
         // TableLayoutPanel row height is zero, creating the white line below Activity log.
         progress.Visible = false;
@@ -408,6 +416,12 @@ internal sealed class ClaimerForm : Form
         int height = Math.Max(1, achievementListHost.ClientSize.Height);
         achievementList.Bounds = new Rectangle(0, 0, width, height);
         emptyLabel.Bounds = new Rectangle(0, 0, width, height);
+        // Opening diagnostics reduces the list viewport; keep both lines of
+        // the first-run/empty-state guidance legible instead of clipping text
+        // inside the old fixed 20px vertical padding.
+        emptyLabel.Padding = height < 145
+            ? new Padding(10, 2, 10, 2)
+            : new Padding(20);
         achievementScrollBar.Bounds = new Rectangle(width, 0, barWidth, height);
         achievementList.Visible = !emptyLabel.Visible;
         if (emptyLabel.Visible) emptyLabel.BringToFront();
@@ -1052,6 +1066,7 @@ internal sealed class ClaimerForm : Form
             if (filter != null) UiTheme.StyleButton(filter, UmiButtonStyle.Ghost);
         logBox.BackColor = UiTheme.SurfaceMuted;
         logViewport.BackColor = UiTheme.SurfaceMuted;
+        progress.BackColor = UiTheme.Cyan;
         logScrollBar.RefreshTheme();
         logBox.ForeColor = UiTheme.Text;
         statusLabel.ForeColor = statusKey == "failed" ? UiTheme.Warning : statusKey == "scanning" || statusKey == "claiming" ? UiTheme.Cyan : UiTheme.Success;
@@ -1079,16 +1094,26 @@ internal sealed class ClaimerForm : Form
             Math.Max(54, achievementList.RowTemplate.Height);
         float availableLogHeight = pageLayout.ClientSize.Height - pageLayout.Padding.Vertical - 206F -
             minimumAchievementHeight;
-        pageLayout.RowStyles[2].Height = expanded
-            ? Math.Max(56F, Math.Min(desired, availableLogHeight))
-            : 56F * scale;
-        // WinForms does not inherit foreground color from the dark viewport;
-        // apply explicitly every time the initially hidden native edit control is shown.
-        logBox.ForeColor = UiTheme.Text;
-        logBox.BackColor = UiTheme.SurfaceMuted;
-        logBox.Visible = expanded;
-        logViewport.Visible = expanded;
-        if (expanded) BeginInvoke(new Action(LayoutLog));
+        // A single synchronous layout pass avoids the stale 1st-click geometry that
+        // occurs when BeginInvoke(LayoutLog) runs after the initial paint.
+        pageLayout.SuspendLayout();
+        try
+        {
+            pageLayout.RowStyles[2].Height = expanded
+                ? Math.Max(56F, Math.Min(desired, availableLogHeight))
+                : 56F * scale;
+            logBox.ForeColor = UiTheme.Text;
+            logBox.BackColor = UiTheme.SurfaceMuted;
+            logViewport.Visible = expanded;
+            logBox.Visible = expanded;
+        }
+        finally { pageLayout.ResumeLayout(true); }
+        logCard.PerformLayout();
+        if (expanded)
+        {
+            logViewport.PerformLayout();
+            LayoutLog();
+        }
         UpdateLogLabel();
     }
 
@@ -1125,7 +1150,7 @@ internal sealed class ClaimerForm : Form
     private void SetBusy(bool busy)
     {
         progress.Visible = busy;
-        pageLayout.RowStyles[3].Height = busy ? 3F * Font.Height / 15F : 0F;
+        pageLayout.RowStyles[3].Height = busy ? Math.Max(3F, 3F * Font.Height / 15F) : 0F;
         browseButton.Enabled = libraryButton.Enabled = pathBox.Enabled = languageToggleButton.Enabled = themeButton.Enabled = settingsButton.Enabled = preflightButton.Enabled = insightsButton.Enabled = !busy;
         cancelWorkerButton.Visible = busy && workerProcess != null;
         if (headerActions != null) headerActions.Width = cancelWorkerButton.Visible ? 514 : 418;
@@ -1385,7 +1410,7 @@ internal sealed class ClaimerForm : Form
             workerProcess.Exited += WorkerExited;
             SetBusy(true);
             UpdateStatus(operation == "list" ? "scanning" : "claiming");
-            progress.Style = ProgressBarStyle.Marquee;
+            progress.BackColor = UiTheme.Cyan;
             workerStarted = workerProcess.Start();
             if (!workerStarted) throw new InvalidOperationException("Worker did not start.");
             workerProcess.BeginOutputReadLine();
@@ -1399,7 +1424,7 @@ internal sealed class ClaimerForm : Form
             AppendLog(L("LỖI KHỞI CHẠY WORKER: ", "WORKER START ERROR: ") + error.Message);
             // A started worker retains its context until WorkerExited completes on the UI thread.
             if (workerStarted) return;
-            progress.Style = ProgressBarStyle.Blocks;
+            progress.BackColor = UiTheme.Cyan;
             if (workerProcess != null) workerProcess.Dispose();
             workerProcess = null;
             workerTimer.Stop();
@@ -1609,7 +1634,7 @@ internal sealed class ClaimerForm : Form
         {
             AppendLog(L("LỖI KHỞI CHẠY WORKER: ", "WORKER START ERROR: ") + error.Message);
             UpdateStatus("failed");
-            progress.Style = ProgressBarStyle.Blocks;
+            progress.BackColor = UiTheme.Cyan;
             CleanupWorker();
             UpdateClaimButtonState();
         }
@@ -1665,7 +1690,7 @@ internal sealed class ClaimerForm : Form
             string interrupted = workerStopReason;
             workerStopReason = null;
             AppendLog(L("Worker kết thúc với exit code ", "Worker finished with exit code ") + exitCode + ".");
-            progress.Style = ProgressBarStyle.Blocks;
+            progress.BackColor = UiTheme.Cyan;
             completedProcess.Dispose();
             workerProcess = null;
             workerOperation = null;
