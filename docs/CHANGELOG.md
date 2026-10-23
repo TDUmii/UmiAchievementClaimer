@@ -1,3 +1,12 @@
+## 1.11.4 — 2026-10-23
+
+- Unified the Activity log card, header, viewport and TextBox into a single dark surface, removing the visible rectangular seam.
+- Removed large hover/pressed fills from Activity log and Copy log without disabling either control.
+- Reduced the toggle's visual footprint; reapply log styling after theme changes.
+- Reviewed a real Windows screenshot with the mouse pointer hovering over Activity log. No floating hover pill or white footer strip was visible.
+- Native synthetic Windows UI regression: **130 PASS / 0 FAIL**. See `docs/QA_V1_11_4_UI.md`.
+
+
 ## 1.11.3 - 2026-10-23
 
 - Replaced native Windows ProgressBar with a small theme-colored Panel to permanently remove its white idle-pixel artifact from the log footer.

@@ -765,13 +765,23 @@ internal sealed class ClaimerForm : Form
     {
         logCard.Dock = DockStyle.Fill;
         logCard.Margin = new Padding(0, 10, 0, 0);
-        logCard.Padding = new Padding(10, 4, 10, 4);
-        Panel logHeader = new Panel { Dock = DockStyle.Top, Height = 34 };
+        // One uninterrupted surface for the header and log body. A different
+        // native TextBox fill used to look like a second rectangular card.
+        logCard.Padding = new Padding(10, 4, 10, 9);
+        Panel logHeader = new Panel {
+            Dock = DockStyle.Top, Height = 34, BackColor = UiTheme.Surface
+        };
         ConfigureButton(logToggleButton, UmiButtonStyle.Ghost);
         logToggleButton.Dock = DockStyle.Left;
-        logToggleButton.Width = 210;
+        logToggleButton.Width = 168;
+        // This is a section heading that toggles visibility, not a selected tab.
+        // Suppress the ghost button's persistent filled hover/pressed pill.
+        logToggleButton.FlatAppearance.MouseOverBackColor = UiTheme.Surface;
+        logToggleButton.FlatAppearance.MouseDownBackColor = UiTheme.Surface;
         logToggleButton.Click += delegate { SetLogExpanded(!logExpanded); ClearMouseFocus(); };
         ConfigureButton(copyLogButton, UmiButtonStyle.Ghost);
+        copyLogButton.FlatAppearance.MouseOverBackColor = UiTheme.Surface;
+        copyLogButton.FlatAppearance.MouseDownBackColor = UiTheme.Surface;
         copyLogButton.Dock = DockStyle.Right;
         copyLogButton.Width = 106;
         copyLogButton.Click += delegate
@@ -792,13 +802,13 @@ internal sealed class ClaimerForm : Form
         logBox.ScrollBars = ScrollBars.None;
         logBox.WordWrap = false;
         logBox.BorderStyle = BorderStyle.None;
-        logBox.BackColor = UiTheme.SurfaceMuted;
-        logBox.ForeColor = UiTheme.Text; // Must apply BEFORE first expansion, not only after theme changes.
+        logBox.BackColor = UiTheme.Surface;
+        logBox.ForeColor = UiTheme.Text; // Explicit even on the first expansion.
         logBox.Font = new Font("Consolas", 10.0F);
         logViewport.Dock = DockStyle.Fill;
         logViewport.Margin = new Padding(0);
-        logViewport.Padding = new Padding(10, 8, 7, 8);
-        logViewport.BackColor = UiTheme.SurfaceMuted;
+        logViewport.Padding = new Padding(10, 7, 7, 8);
+        logViewport.BackColor = UiTheme.Surface;
         logScrollBar.Width = 12;
         logScrollBar.Visible = false;
         logScrollBar.TabStop = true;
@@ -1064,8 +1074,13 @@ internal sealed class ClaimerForm : Form
         UiTheme.StyleButton(sortButton, UmiButtonStyle.Ghost);
         foreach (Button filter in filterButtons)
             if (filter != null) UiTheme.StyleButton(filter, UmiButtonStyle.Ghost);
-        logBox.BackColor = UiTheme.SurfaceMuted;
-        logViewport.BackColor = UiTheme.SurfaceMuted;
+        logBox.BackColor = UiTheme.Surface;
+        logViewport.BackColor = UiTheme.Surface;
+        logToggleButton.Parent.BackColor = UiTheme.Surface;
+        logToggleButton.FlatAppearance.MouseOverBackColor = UiTheme.Surface;
+        logToggleButton.FlatAppearance.MouseDownBackColor = UiTheme.Surface;
+        copyLogButton.FlatAppearance.MouseOverBackColor = UiTheme.Surface;
+        copyLogButton.FlatAppearance.MouseDownBackColor = UiTheme.Surface;
         progress.BackColor = UiTheme.Cyan;
         logScrollBar.RefreshTheme();
         logBox.ForeColor = UiTheme.Text;
@@ -1103,7 +1118,7 @@ internal sealed class ClaimerForm : Form
                 ? Math.Max(56F, Math.Min(desired, availableLogHeight))
                 : 56F * scale;
             logBox.ForeColor = UiTheme.Text;
-            logBox.BackColor = UiTheme.SurfaceMuted;
+            logBox.BackColor = UiTheme.Surface;
             logViewport.Visible = expanded;
             logBox.Visible = expanded;
         }

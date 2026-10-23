@@ -456,9 +456,22 @@ internal static class UiRegression
                     Control(form, "progress") is Panel &&
                     !(Control(form, "progress") is ProgressBar),
                     "activity indicator is a non-native panel and stays hidden while idle");
-                Check(form.Text.Contains("v1.11.3"), "window caption includes the current assembly version");
+                Button logToggle = (Button)Field(form, "logToggleButton");
+                Control logSurface = Control(form, "logViewport");
+                Check(logSurface.BackColor.ToArgb() == Control(form, "logCard").BackColor.ToArgb() &&
+                    Control(form, "logBox").BackColor.ToArgb() == logSurface.BackColor.ToArgb() &&
+                    logToggle.Parent.BackColor.ToArgb() == logSurface.BackColor.ToArgb(),
+                    "Activity log header, viewport and text share a single continuous surface");
+                Button copyLog = (Button)Field(form, "copyLogButton");
+                Check(logToggle.FlatAppearance.MouseOverBackColor.ToArgb() == logToggle.BackColor.ToArgb() &&
+                    logToggle.FlatAppearance.MouseDownBackColor.ToArgb() == logToggle.BackColor.ToArgb() &&
+                    copyLog.FlatAppearance.MouseOverBackColor.ToArgb() == copyLog.BackColor.ToArgb() &&
+                    copyLog.FlatAppearance.MouseDownBackColor.ToArgb() == copyLog.BackColor.ToArgb(),
+                    "Activity log actions never paint persistent filled hover pills");
+                Check(logToggle.Width <= 180, "log toggle has a compact unobtrusive click target");
+                Check(form.Text.Contains("v1.11.4"), "window caption includes the current assembly version");
                 Control version = Control(form, "versionLabel");
-                Check(version.Text == "v1.11.3" && version.Visible &&
+                Check(version.Text == "v1.11.4" && version.Visible &&
                     version.Parent == Control(form, "versionHost") &&
                     version.Bottom <= version.Parent.ClientSize.Height &&
                     version.Right <= version.Parent.ClientSize.Width,
@@ -520,6 +533,10 @@ internal static class UiRegression
                 themeType.GetMethod("ApplyPreset", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { "Carbon" });
                 Check((string)themeType.GetProperty("ActiveName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).GetValue(null, null) == "Carbon"
                     && Control(form, "settingsButton").Enabled, "theme preset changes while the client is idle");
+                Check(Control(form, "logViewport").BackColor.ToArgb() == Control(form, "logCard").BackColor.ToArgb() &&
+                    logToggle.FlatAppearance.MouseOverBackColor.ToArgb() == logToggle.BackColor.ToArgb() &&
+                    copyLog.FlatAppearance.MouseOverBackColor.ToArgb() == copyLog.BackColor.ToArgb(),
+                    "seamless Activity log and quiet controls survive a theme switch");
                 themeType.GetMethod("ApplyCustomAccent", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { Color.FromArgb(255, 88, 190, 224) });
                 Check((string)themeType.GetProperty("ActiveName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).GetValue(null, null) == "Custom", "custom accent theme is accepted");
                 themeType.GetMethod("ApplyPreset", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { "Steam Midnight" });
