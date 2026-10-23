@@ -7,5 +7,5 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyProduct("Umi Achievement Claimer")]
 [assembly: AssemblyCopyright("Copyright © Umi 2026")]
 [assembly: ComVisible(false)]
-[assembly: AssemblyVersion("1.11.2.0")]
-[assembly: AssemblyFileVersion("1.11.2.0")]
+[assembly: AssemblyVersion("1.11.3.0")]
+[assembly: AssemblyFileVersion("1.11.3.0")]
