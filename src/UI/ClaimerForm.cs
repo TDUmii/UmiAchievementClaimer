@@ -38,6 +38,9 @@ internal sealed class ClaimerForm : Form
     private readonly CardPanel logCard = new CardPanel();
     private readonly PictureBox brandLogo = new PictureBox();
     private readonly Label titleLabel = new Label();
+    private readonly Label versionLabel = new Label();
+    private readonly Panel versionHost = new Panel();
+    private FlowLayoutPanel headerActions;
     private readonly Label subtitleLabel = new Label();
     private readonly Label steamStatusLabel = new Label();
     private readonly Label gameFolderTitleLabel = new Label();
@@ -127,7 +130,8 @@ internal sealed class ClaimerForm : Form
 
     public ClaimerForm()
     {
-        Text = "Umi Achievement Claimer";
+        string appVersion = Assembly.GetExecutingAssembly().GetName().Version.ToString(3);
+        Text = "Umi Achievement Claimer  v" + appVersion;
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(1220, 840);
         MinimumSize = new Size(1040, 760);
@@ -192,6 +196,13 @@ internal sealed class ClaimerForm : Form
         titleLabel.Font = UiTheme.DisplayFont(18F, FontStyle.Bold);
         titleLabel.AutoSize = true;
         titleLabel.Location = new Point(96, 27);
+        versionLabel.Text = "v" + Assembly.GetExecutingAssembly().GetName().Version.ToString(3);
+        versionLabel.AccessibleName = "Application version";
+        versionLabel.TextAlign = ContentAlignment.MiddleRight;
+        versionLabel.ForeColor = UiTheme.MutedText;
+        versionLabel.Font = UiTheme.DisplayFont(9F, FontStyle.Bold);
+        versionLabel.Height = 17;
+        versionLabel.Dock = DockStyle.Bottom;
         subtitleLabel.Visible = false;
         languageToggleButton.Text = "EN";
         languageToggleButton.AccessibleName = "Language / Ngôn ngữ";
@@ -249,7 +260,16 @@ internal sealed class ClaimerForm : Form
             Padding = new Padding(0, 8, 0, 0),
             Margin = new Padding(0)
         };
-        actions.Controls.Add(settingsButton);
+        // A dedicated vertical stack ensures that the version is visible
+        // underneath Settings, rather than being covered by the docked action bar.
+        versionHost.Size = new Size(98, 52);
+        versionHost.Margin = new Padding(0);
+        versionHost.BackColor = UiTheme.Canvas;
+        settingsButton.Dock = DockStyle.Top;
+        versionHost.Controls.Add(settingsButton);
+        versionHost.Controls.Add(versionLabel);
+        headerActions = actions;
+        actions.Controls.Add(versionHost);
         actions.Controls.Add(cancelWorkerButton);
         actions.Controls.Add(preflightButton);
         actions.Controls.Add(insightsButton);
@@ -280,6 +300,9 @@ internal sealed class ClaimerForm : Form
         BuildLogCard();
         progress.Dock = DockStyle.Fill;
         progress.Margin = new Padding(0);
+        // Critical: a visible native ProgressBar occupies one pixel even when its
+        // TableLayoutPanel row height is zero, creating the white line below Activity log.
+        progress.Visible = false;
         pageLayout.Controls.Add(informationCard, 0, 0);
         pageLayout.Controls.Add(achievementCard, 0, 1);
         pageLayout.Controls.Add(logCard, 0, 2);
@@ -893,7 +916,7 @@ internal sealed class ClaimerForm : Form
 
     private void ApplyLanguage()
     {
-        Text = "Umi Achievement Claimer";
+        Text = "Umi Achievement Claimer  v" + Assembly.GetExecutingAssembly().GetName().Version.ToString(3);
         titleLabel.Text = "Umi Achievement Claimer";
         subtitleLabel.Text = string.Empty;
         subtitleLabel.Visible = false;
@@ -970,6 +993,7 @@ internal sealed class ClaimerForm : Form
         BackColor = UiTheme.Canvas;
         ForeColor = UiTheme.Text;
         headerPanel.BackColor = UiTheme.Canvas;
+        versionHost.BackColor = UiTheme.Canvas;
         pageLayout.BackColor = UiTheme.Canvas;
         gameCard.BackColor = UiTheme.Surface;
         pathInputFrame.BackColor = UiTheme.SurfaceMuted;
@@ -986,6 +1010,7 @@ internal sealed class ClaimerForm : Form
         gameCover.BackColor = UiTheme.SurfaceMuted;
         coverFallback.ForeColor = UiTheme.MutedText;
         titleLabel.ForeColor = UiTheme.Text;
+        versionLabel.ForeColor = UiTheme.Cyan;
         steamStatusLabel.ForeColor = statusKey == "failed" ? UiTheme.Warning : UiTheme.Success;
         detectionTitleLabel.ForeColor = UiTheme.Primary;
         detectionStatusLabel.ForeColor = detectedGame == null ? UiTheme.MutedText : UiTheme.Success;
@@ -1103,6 +1128,7 @@ internal sealed class ClaimerForm : Form
         pageLayout.RowStyles[3].Height = busy ? 3F * Font.Height / 15F : 0F;
         browseButton.Enabled = libraryButton.Enabled = pathBox.Enabled = languageToggleButton.Enabled = themeButton.Enabled = settingsButton.Enabled = preflightButton.Enabled = insightsButton.Enabled = !busy;
         cancelWorkerButton.Visible = busy && workerProcess != null;
+        if (headerActions != null) headerActions.Width = cancelWorkerButton.Visible ? 514 : 418;
         cancelWorkerButton.Enabled = workerProcess != null && string.IsNullOrEmpty(workerStopReason);
         sortButton.Enabled = !busy;
         scanButton.Enabled = !busy && Directory.Exists(pathBox.Text);

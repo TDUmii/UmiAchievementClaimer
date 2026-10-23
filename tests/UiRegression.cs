@@ -452,6 +452,22 @@ internal static class UiRegression
                 Check(Control(form, "logBox").Visible &&
                     Control(form, "logBox").ForeColor.ToArgb() == Color.FromArgb(235, 241, 250).ToArgb(),
                     "first log click before any theme change draws readable log text");
+                Check(!Control(form, "progress").Visible,
+                    "idle progress control is hidden so no native one-pixel white line appears below log");
+                Check(form.Text.Contains("v1.11.2"), "window caption includes the current assembly version");
+                Control version = Control(form, "versionLabel");
+                Check(version.Text == "v1.11.2" && version.Visible &&
+                    version.Parent == Control(form, "versionHost") &&
+                    version.Bottom <= version.Parent.ClientSize.Height &&
+                    version.Right <= version.Parent.ClientSize.Width,
+                    "current assembly version is fully visible in the upper-right Settings corner");
+                Control progressProbe = Control(form, "progress");
+                Console.WriteLine("FOOTER_GEOMETRY " +
+                    "progressVisible=" + progressProbe.Visible +
+                    " progressBounds=" + progressProbe.Bounds +
+                    " progressParent=" + progressProbe.Parent.ClientSize +
+                    " logBottom=" + Control(form, "logCard").Bottom +
+                    " formClient=" + form.ClientSize);
                 Capture(form, "log-first-open-en.png");
                 ((Button)Field(form, "logToggleButton")).PerformClick();
                 object grid = Field(form, "achievementList");
@@ -595,7 +611,12 @@ internal static class UiRegression
                         };
                         fakeWorker.Start();
                         Set(form, "workerProcess", fakeWorker);
+                        Call(form, "SetBusy", true);
+                        Check(Control(form, "cancelWorkerButton").Visible &&
+                            Control(form, "headerActions").Width >= 500,
+                            "running worker expands header actions so Cancel stays visible");
                         Call(form, "StopWorker", scenario == 0);
+                        Call(form, "SetBusy", false);
                         bool stopped = fakeWorker.WaitForExit(5000);
                         Check(stopped && (string)Field(form, "workerStopReason") ==
                             (scenario == 0 ? "timeout" : "cancelled"),
@@ -620,9 +641,13 @@ internal static class UiRegression
                 }
 
                 Call(form, "SetBusy", true);
+                Check(Control(form, "progress").Visible,
+                    "progress indicator becomes visible only while a worker is busy");
                 string[] busyControls = { "preflightButton", "sortButton", "libraryButton", "browseButton", "pathBox", "languageToggleButton", "themeButton", "settingsButton", "searchBox", "achievementList", "selectAllButton", "selectLockedButton", "clearSelectionButton", "selectionMenuButton", "claimButton" };
                 Check(busyControls.All(name => !Control(form, name).Enabled) && filters.All(button => !button.Enabled), "busy state locks game, language, filters and selection");
                 Call(form, "SetBusy", false);
+                Check(!Control(form, "progress").Visible,
+                    "progress indicator is hidden again as soon as busy state ends");
                 Check(busyControls.All(name => Control(form, name).Enabled) && filters.All(button => button.Enabled)
                     && Control(form, "scanButton").Enabled == Directory.Exists(Control(form, "pathBox").Text), "idle state restores appropriate controls and respects valid scan path");
                 Call(form, "AppendLog", "UI TEST: synthetic rows injected; no Steam scan or claim was performed.");

@@ -1,274 +1,120 @@
 # Umi Achievement Claimer
 
-A lightweight, bilingual **Windows utility** for reviewing Steam game achievements and claiming **only the achievements you explicitly select**.
+**A lightweight, bilingual Windows desktop utility for discovering Steam games, inspecting achievements and changing only the achievements you explicitly select.**
 
-**English** · [Tiếng Việt](#tiếng-việt) · [Download](#download) · [Build from source](#build-from-source) · [Changelog](docs/CHANGELOG.md)
+[English](#english) · [Tiếng Việt](#tiếng-việt) · [Build & tests](#build-and-tests) · [Changelog](docs/CHANGELOG.md) · [GitHub Actions](https://github.com/TDUmii/UmiAchievementClaimer/actions)
 
-> **Development status:** The current local source tree includes the Steam Midnight v2 UI and subsequent usability fixes. The published GitHub Releases download may not yet contain these unreleased local changes. Build the source or use the locally built executable to see the exact interface shown below.
+**Current source version: 1.11.2** · Windows x64 · Portable EXE · English / Tiếng Việt
 
-## Interface — Steam Midnight v2
+> The newest development build is `dist/UmiAchievementClaimer.exe`. GitHub Releases may offer an older version until a release is explicitly tagged. The app displays its exact version at the top-right of the main window and in the window title.
 
-![Umi Achievement Claimer 1.11.0: Steam Midnight UI with Insights, filters and achievement selection](docs/images/desktop-v1.11.0-test.png)
+## English
 
-*Current native WinForms regression capture with entirely synthetic game information and achievement entries. It is not evidence of a real Steam claim, and Windows-composited titlebar pixels are not part of the verified client render.*
+### Interface
 
-The interface prioritizes three actions: **choose a game → review/select achievements → confirm a claim**.
+![Main window with no game selected](docs/images/ui-home.png)
 
-- **Game summary:** game artwork, detected name, Steam AppID, architecture, counts, unlock-progress bar and folder controls in one full-width row.
-- **My games / Browse / Rescan:** the searchable Steam library picker discovers installed games using local appmanifests, including additional Steam library drives; Browse remains available when a game is not listed. Both selection paths start a read-only scan. Rescan repeats the selected path; the displayed path cannot be edited.
-- **Achievement explorer:** filter **All / Locked / Unlocked**, search by name, description or API ID, and review icons and status.
-- **Quick select:** select visible entries, select visible locked entries or clear all. Filtering never silently discards already selected achievements.
-- **Claim footer:** displays exactly how many achievements are selected, including those hidden by your current search/filter. Nothing is claimed until you confirm.
-- **Diagnostics:** collapsible Activity log with Copy log, enlarged readable log text, themed scrolling and expandable Steam API details.
-- **Appearance:** Steam Midnight, Carbon, Arcade and custom accent themes, plus English/Vietnamese controls in Settings.
+*Native WinForms client render with synthetic data; this is not a live Steam account or proof that claiming works in a particular game.*
 
-### Version 1.11.1: UI polish and no-achievement handling
+![Activity log expanded on the first click](docs/images/ui-log.png)
 
-- **First-click Activity log:** readable light text immediately on opening, even before changing theme or minimizing the app.
-- **Search field:** uses the native Windows cue banner instead of an overlaid label, preventing half-cut placeholder text.
-- **Empty states:** first-run guidance and no-results messaging stay above the hidden native achievement grid. A successfully scanned game with zero achievements is a valid empty state, not an error, and Claim stays disabled.
-- **Settings and Insights:** redesigned visual hierarchy, typography and button spacing; Insights now presents three scannable KPI cards and a themed history list.
-- **Windows 11 frame:** asks Desktop Window Manager to suppress its border without disabling native window resizing (physical frame not captured by WinForms UI screenshots).
+**What's included**
 
-![First-click Activity log after UI polish](docs/images/log-first-open-v1.11.1-en.png)
+- **Game library:** discovers locally installed Steam games, including additional Steam libraries. Search by name or AppID, favorite titles, and revisit recently selected games. Use **Browse** when detection is unavailable.
+- **Achievement explorer:** read-only scan, game artwork when available, API ID and description, filters, sorting, explicit multi-selection and a confirmation dialog before any Claim.
+- **Steam preflight and diagnostics:** check Steam process, AppID, installation path and API detection; view technical details, copy Activity log, cancel a worker or let its timeout stop it.
+- **Verification and recovery:** review local API readback after Claim, compare a previous snapshot to a later *read-only* scan, and inspect uncertain or interrupted results. Neither verification nor snapshots independently prove Steam-server synchronization.
+- **Insights:** global rarity where Steam publishes it, unlock time where the game's Steam API provides it, local progress snapshots, a timeline, CSV export and a manual check for public GitHub releases. Local snapshot history is limited to 30 distinct states per AppID.
+- **Bilingual appearance:** English/Vietnamese, Steam Midnight, Carbon, Arcade and optional custom accent.
 
-![Improved Settings](docs/images/settings-v1.11.1-en.png)
+![Settings: languages and appearance](docs/images/ui-settings.png)
 
-![Improved Insights Dashboard](docs/images/insights-v1.11.1-en.png)
+![Insights: progress, snapshots and recovery](docs/images/ui-insights.png)
 
-See [UI polish QA](docs/QA_V1_11_1_UI.md) for the tested cases and known limits.
+### Getting started
 
-### Version 1.11.0: Rarity, Timeline, Dashboard & Recovery
+1. Keep Steam running and signed in. Close the target game before attempting a Claim.
+2. Launch `dist/UmiAchievementClaimer.exe`. Choose **My games**, or **Browse** to select the target game's installation folder.
+3. Check the game name, Steam AppID and architecture. Use **Preflight** to inspect local prerequisites.
+4. Inspect achievements. You may search, filter, sort or open details. Check only the items you intend to change.
+5. Choose **Claim selected** and review the separate confirmation. **Cancel** is the default safe action.
+6. After an operation, inspect **Activity log** and, if needed, perform a new read-only scan before trusting any state changes.
 
-The **Insights** button opens a local dashboard showing games, unlocked counts, snapshots and changes between scans. After each successful read-only scan, the app saves up to 30 distinct snapshots per game. Double-click a game in Insights to inspect its local timeline, or export the active game's latest snapshot as CSV.
+**Games without achievements:** a successful scan that reports zero achievements shows a clear empty state and keeps Claim disabled. A failed scan is reported separately rather than being treated as an empty game.
 
-- **Rarity:** Steam public global achievement percentages when available. Umi's Common / Rare / Ultra rare tiers are local display classifications.
-- **Unlock time:** uses Steamworks GetAchievementAndUnlockTime when the optional native export is supported; otherwise Not available.
-- **Recovery:** saves a baseline before an explicitly confirmed Claim; a subsequent read-only scan compares results without attempting another Claim.
-- **Updater:** manually checks the official public GitHub Releases feed and may open the official page after your approval. No automatic installation or execution.
-- **Privacy:** snapshots are stored under Windows AppData/UmiAchievementClaimer/history, contain no credentials or game paths, and are scoped to the Windows profile plus AppID, not Steam account ID.
+**Missing artwork:** the application can use public Steam images or existing local Steam artwork cache. An image failing to load does not prevent achievement listing.
 
-![Read-only Insights Dashboard with synthetic data](docs/images/insights-dashboard-en.png)
+**Keyboard:** `Ctrl+L` opens installed games, `Ctrl+F` focuses achievement search, `F5` rescans the selected folder.
 
-*UI regression screenshot uses synthetic data. No Steam account changes were performed for this image.*
+### Downloads and local data
 
-See [1.11 quality gate and limitations](docs/QA_V1_11.md).
-
-### Version 1.10.0: Reliability and workflow updates
-
-- Preflight checks Steam process, installation folder, AppID, API source, and worker architecture without changing achievements.
-- Running worker operations can be cancelled. List operations time out after 90 seconds; selected claims after 120 seconds. Interrupted outcomes are reported as uncertain and never automatically retried.
-- Claim completion distinguishes locally verified Steam API status from accepted requests; it does not prove server synchronization.
-- Double-click an achievement to inspect its description, API ID, status and artwork.
-- Installed-game library now includes Favorites, Favorites-only, and recently-used ordering. It persists AppIDs only.
-- Achievements can be sorted by name, locked first or unlocked first, while preserving explicit selection.
-- Run tools/package-release.ps1 to package the tested portable EXE. GitHub Actions builds and tests, publishing only for explicit version tags.
-
-See the quality-gate report in docs/QA_V1_10.md. Tests use synthetic data, not live Steam claims.
-
-### Searchable installed-game library
-
-![Steam library picker with searchable installed games](docs/images/steam-library-en.png)
-
-*Native UI test render using synthetic installed-game manifests. Real Steam library discovery was separately confirmed on the Windows development machine; this screenshot is not an account or game-claim capture.*
-
-The picker searches by **game name or Steam AppID** and includes a manual-folder fallback. Library enumeration runs without freezing the window. Keyboard shortcuts: **Ctrl+L** opens the library, **Ctrl+F** focuses achievement search, and **F5** rescans the current path.
-
-### Expanded diagnostics
-
-![Steam Midnight v2 — technical details and expanded activity log at minimum supported window size](docs/images/steam-midnight-v2-log.png)
-
-*UI regression capture at a smaller window size. Data is synthetic, and no Steam worker or live claim was invoked to create the screenshot.*
-
-## Download
-
-Get the **published release** from [GitHub Releases](https://github.com/TDUmii/UmiAchievementClaimer/releases/latest), or build the newest local source as described below.
-
-**Important:** A GitHub Release can differ from the latest local build. Use `dist\UmiAchievementClaimer.exe` for this updated UI. The repository-root executable may remain older if it was open or locked during a build. `build.ps1` warns and stages the current executable under `dist` instead of interrupting the build.
-
-Local development build checked on **October 23, 2026**:
-
-| Item | Local value |
-|---|---|
-| Product version reported by the project | `1.11.1` (local build; public release not yet published) |
-| Executable | `dist\UmiAchievementClaimer.exe` (latest tested build) |
-| Size | Varies by build; check the latest `dist` executable |
-| SHA-256 | See `SHA256SUMS.txt` after the latest build |
-
-Verify your **local** file using PowerShell:
+The canonical executable is always **`dist/UmiAchievementClaimer.exe`**. To create a portable archive and checksums:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\dist\UmiAchievementClaimer.exe
+.\tools\package-release.ps1
 ```
 
-The checksum recorded in `SHA256SUMS.txt` is for the local build, **not necessarily the file currently offered by GitHub Releases**. Rebuilding changes the checksum; consult `SHA256SUMS.txt` after building.
+This produces `dist/UmiAchievementClaimer-v1.11.2-windows-x64-portable.zip` and `dist/SHA256SUMS.release.txt`. **Only after the new archive is successfully created, older versioned ZIPs in `dist` are deleted.** The build no longer creates a duplicate EXE in the repository root.
 
-## Requirements
+Personal preferences and optional snapshot history reside in `%APPDATA%\UmiAchievementClaimer`. Build cleanup never deletes this data. Snapshot history is scoped by **Windows user profile + Steam AppID**, not Steam account; avoid sharing a Windows profile across Steam accounts if you require account-specific historical comparisons.
 
-- Windows 10 or 11, **64-bit**.
-- Steam running and signed in **Online** with a valid session and appropriate game license.
-- A supported Steamworks API implementation in the target game's installation.
-- Internet access for fetching public artwork when available; the core achievement list does not require artwork to load.
+### Build and tests
 
-Some games with server-authoritative achievements, anti-cheat restrictions, custom/encrypted Steam APIs, third-party launchers or linked accounts may not support the claim operation.
-
-## How to use
-
-1. **Close the target game**, but keep Steam running in Online mode.
-2. Start the current build from `dist\UmiAchievementClaimer.exe` and choose **My games** to select a detected installed title. If the game is not listed, use **Browse** to choose the game's installation directory (not a generic Steam library root). The scan begins automatically after selection.
-3. Verify the **game name, AppID and detected architecture** in the game summary. Choose **Rescan** if needed.
-4. Review the loaded achievements. Use **Search** and **All / Locked / Unlocked** to narrow the list.
-5. Tick only the achievements you intend to claim. **Quick select** provides bulk selection of visible entries, visible locked entries, and Clear all.
-6. Review the **selected count** at the bottom of the list. Search/filter changes preserve checked achievements even when hidden.
-7. Select **Claim selected**, inspect the **game, AppID and selection count** in the confirmation dialog, then choose whether to proceed. **Cancel** is the safe/default dialog action.
-8. Use **Activity log** / **Copy log** for troubleshooting and **View technical details** to inspect Steam API detection. Open **Settings** for language or theme changes.
-
-**Safety by design:** Scanning is read-only; claiming is never automatic. The app asks for explicit confirmation and does not intentionally edit or delete game save files. Changing achievement state may affect your Steam profile and may not be fully reversible.
-
-## Game artwork and fallback
-
-The app tries public Steam metadata and Steam CDN images for the game cover and achievement icons. If the game cover is unavailable online, it also attempts to read an existing local Steam artwork cache, including nested `library_header.jpg`, `library_capsule.jpg` or `library_hero.jpg` files.
-
-For example, an installation may already have artwork under:
-
-```text
-C:\Program Files (x86)\Steam\appcache\librarycache\<SteamAppID>\
-```
-
-If no supported artwork is found, the interface shows a neutral placeholder. A missing image **does not prevent** scanning, selecting or confirming achievements. Artwork availability depends on Steam metadata and what the local client has cached. Public-artwork requests do not upload your installation path or account credentials.
-
-## Appearance and controls
-
-The application opens in **English**. Open **Settings** to switch **EN / VI** and choose **Steam Midnight**, **Carbon**, **Arcade** or a custom accent. The selected theme is persisted in:
-
-```text
-%APPDATA%\UmiAchievementClaimer\theme.cfg
-```
-
-Keyboard navigation is supported. **Ctrl+L** opens the installed-game picker, **Ctrl+F** focuses achievement search and **F5** rescans the selected game. Buttons and list rows preserve keyboard focus feedback without permanently highlighting controls after mouse interactions. The activity log, achievement list and game picker use matching themed scrollbars.
-
-## Build from source
-
-Use Windows PowerShell and the .NET Framework 4.x compilers supplied with Windows. This project does not require NuGet packages for the documented build.
+Requirements: Windows 10/11 x64, .NET Framework 4.x C# compilers from Windows, and PowerShell. No NuGet dependency is needed for the documented build.
 
 ```powershell
 git clone https://github.com/TDUmii/UmiAchievementClaimer.git
 cd UmiAchievementClaimer
-Set-ExecutionPolicy -Scope Process Bypass
 .\build.ps1
-```
-
-The build places the newest executable in `dist\UmiAchievementClaimer.exe` and attempts to copy it into the repository root. When the root executable is locked by Windows, the build still succeeds in `dist` and the UI test runner uses the newest `dist` build.
-
-### UI regression tests
-
-```powershell
 .\tests\run-ui.ps1
-
-# Optional: download public Portal 2 artwork test fixtures first
-.\tests\run-artwork.ps1
-.\tests\run-ui.ps1 -SkipBuild
+.\tools\package-release.ps1 -SkipBuild -SkipTests
 ```
 
-The latest local UI run completed **115 PASS / 0 FAIL** (October 23, 2026). The suite exercises synthetic game data, filtering, selection persistence, confirmation safety, settings, window geometry, and generated renders. It **does not** claim real Steam achievements or prove compatibility with any individual game. The 150% UI check simulates scaling rather than using a physical high-DPI screen. Native title-bar compositing is not captured by `DrawToBitmap`.
+The source build embeds isolated x86/x64 workers in a single Windows desktop EXE. The local **1.11.2 regression suite (122 PASS / 0 FAIL)** includes checks that a hidden idle ProgressBar never leaves a one-pixel line under the Activity log, that the version label matches assembly metadata, and that the progress indicator appears only during work. The suite uses synthetic game and worker data; it **does not** perform a real Claim.
 
-Render outputs are written to the ignored `.impeccable/review/` directory. The checked-in README screenshots were copied from those render outputs and show the current design without bundling Steam artwork into the application.
+See [UI review and test evidence](docs/QA_V1_11_2_UI.md), [Architecture](docs/ARCHITECTURE.md), [Design notes](DESIGN.md), [Product notes](PRODUCT.md) and [Changelog](docs/CHANGELOG.md).
 
-## Project layout
+### Safety and limits
 
-```text
-src/App/                Application entry point
-src/UI/                 WinForms UI, theme, artwork and dialogs
-src/Core/               Core models and behaviors
-src/Detection/          Game and Steam API detection
-src/Worker/             Isolated Steam workers
-assets/                 Application branding and icons
-docs/images/            README screenshots and provenance notes
-tests/                  Native UI and artwork test harnesses
-tools/                  Development utilities
-build.ps1               Windows build script
-```
-
-See [Architecture](docs/ARCHITECTURE.md), [Design system](DESIGN.md), [Product decisions](PRODUCT.md), [UI/UX quality gate](docs/UI_UX_QA_2026-10-23.md), and [Changelog](docs/CHANGELOG.md).
-
-## Limitations and responsible use
-
-Use the tool **only** with games and Steam accounts you are authorized to access. Claim operations modify Steam achievement/profile state and may not be reversible. Compatibility varies by game, Steamworks version, online/account status, DLC, server policies and third-party launchers. The app reports unsupported cases rather than using unsafe runtime-memory extraction.
-
-**License:** No license file is included in this repository as of the local review; public source access does not by itself grant reuse rights.
+Use only with games and accounts you are authorized to access. Steamworks behavior varies by title, version, online state, anti-cheat, server-authoritative achievements and third-party launchers. A changed achievement may not be reversible. The tool never claims automatically, never retries a failed Claim automatically, and should not be represented as universally compatible with all Steam games. There is currently no LICENSE file in this repository; public access to the source does not by itself grant reuse rights.
 
 ---
 
-# Tiếng Việt
+## Tiếng Việt
 
-**Umi Achievement Claimer** là ứng dụng Windows gọn nhẹ giúp nhận diện game Steam, xem trạng thái thành tích và chỉ claim những achievement mà người dùng **chủ động lựa chọn**. Giao diện hỗ trợ tiếng Anh và tiếng Việt.
+**Umi Achievement Claimer** là công cụ Windows giúp tìm game Steam đã cài, xem thành tích và chỉ thay đổi các achievement mà người dùng **tự chọn và xác nhận**.
 
-> **Lưu ý về phiên bản:** Bộ mã nguồn hiện tại trên máy đã có Steam Midnight v2 và các bản sửa UI gần nhất. File trên GitHub Releases có thể vẫn là bản cũ nếu thay đổi chưa được commit, push và phát hành.
+**Phiên bản mã nguồn hiện tại: 1.11.2.** Số phiên bản hiển thị ở góc trên bên phải và trên thanh tiêu đề. File chạy mới nhất nằm tại `dist\UmiAchievementClaimer.exe`, không phải thư mục gốc dự án.
 
-## Giao diện mới
+### Chức năng
 
-![Giao diện Steam Midnight v2 với thông tin game nằm ngang và danh sách achievement](docs/images/steam-midnight-v2.png)
+- **Thư viện game:** tự tìm game Steam trên nhiều ổ đĩa, tìm theo tên/AppID, đánh dấu yêu thích, sắp xếp game gần đây; có thể chọn thư mục thủ công.
+- **Quản lý achievement:** quét chỉ đọc, xem tên, trạng thái, mô tả, tỷ lệ hiếm và thời gian mở khóa (nếu Steam cung cấp); tìm kiếm, lọc, sắp xếp, chọn và xác nhận trước khi Claim.
+- **Kiểm tra và xử lý lỗi:** Preflight, Activity log, sao chép log, hủy và timeout; thông báo rõ khi không thể xác nhận trạng thái.
+- **Insights & Recovery:** thống kê, lưu tối đa 30 snapshot khác nhau mỗi AppID, xem lịch sử thay đổi, xuất CSV và đối chiếu trước/sau Claim bằng cách quét lại chỉ đọc; không tự Claim lại.
+- **Cài đặt:** tiếng Việt/Anh, giao diện Steam Midnight/Carbon/Arcade, màu tùy chỉnh.
+- **Game không có achievement:** ứng dụng hiển thị thông báo riêng và vô hiệu hóa Claim, không tự xem kết quả 0 thành tích là lỗi.
 
-*Ảnh render ứng dụng WinForms tại 1220 × 840, dùng ảnh công khai của Portal 2 nhưng dữ liệu game/achievement để kiểm thử là **giả lập**. Đây không phải ảnh ghi nhận quá trình claim thành tích thật.*
+### Sử dụng nhanh
 
-Thay đổi nổi bật:
+1. Mở Steam và đăng nhập Online; nên đóng game đang cần thao tác.
+2. Chạy `dist\UmiAchievementClaimer.exe`, nhấn **My games / Thư viện** hoặc **Browse / Thư mục**.
+3. Kiểm tra tên game, AppID và thông tin Preflight.
+4. Tìm và chọn các thành tích cần thay đổi; nhấn **Claim selected** và đọc kỹ cửa sổ xác nhận.
+5. Kiểm tra Activity log, sau đó quét lại nếu cần xác minh trạng thái.
 
-- **Thông tin game nằm ngang:** ảnh bìa, tên game, AppID, kiến trúc, số thành tích đã/chưa mở và thanh tiến độ.
-- **Thư viện Steam tự động:** bấm **My games / Thư viện** để xem danh sách game đã cài, tìm theo tên hoặc AppID. Nếu không tìm thấy, dùng **Browse / Thư mục** để chọn thư mục thủ công; **Rescan / Quét lại** để quét lại. Quét không khóa giao diện.
-- **Tìm kiếm và lọc:** tìm achievement bằng tên, mô tả hoặc API ID; chọn **All / Locked / Unlocked**.
-- **Quick select:** chọn tất cả mục đang hiện, chọn mục chưa mở đang hiện hoặc bỏ chọn toàn bộ.
-- **Claim an toàn:** hiển thị số mục đã chọn, kể cả mục bị ẩn bởi bộ lọc; luôn yêu cầu xác nhận trước khi thực hiện.
-- **Activity log:** có thể mở rộng, sao chép nhật ký, xem chi tiết kỹ thuật; giao diện và thanh cuộn đồng bộ với danh sách.
-- **Cá nhân hóa:** hỗ trợ giao diện Steam Midnight, Carbon, Arcade, màu nhấn tự chọn và chuyển đổi EN/VI.
+Phím tắt: `Ctrl+L` mở thư viện, `Ctrl+F` tìm achievement, `F5` quét lại.
 
-### Activity log và chi tiết kỹ thuật
-
-![Giao diện log mở rộng và chi tiết kỹ thuật trong Steam Midnight v2](docs/images/steam-midnight-v2-log.png)
-
-*Ảnh kiểm thử tại kích thước cửa sổ nhỏ; không thao tác với thành tích Steam thật.*
-
-## Tải và chạy
-
-Tải bản phát hành công khai tại [GitHub Releases](https://github.com/TDUmii/UmiAchievementClaimer/releases/latest). Nếu muốn sử dụng giao diện mới nhất, hãy chạy `dist\UmiAchievementClaimer.exe` hoặc build từ mã nguồn mới nhất. Bản EXE ở thư mục gốc có thể cũ hơn nếu đang bị Windows khóa.
-
-**Yêu cầu:** Windows 10/11 64-bit, Steam đang chạy ở chế độ Online và tài khoản có quyền dùng game. Một số game dùng hệ thống thành tích phía máy chủ, anti-cheat hoặc Steam API đặc biệt có thể không tương thích.
-
-### Hướng dẫn sử dụng
-
-1. Đóng game cần thao tác nhưng **giữ Steam đang chạy** ở chế độ Online.
-2. Chạy bản mới tại `dist\UmiAchievementClaimer.exe`, bấm **My games / Thư viện** để chọn game đã cài; nếu không thấy game, dùng **Browse / Thư mục** và chọn đúng thư mục cài game.
-3. Kiểm tra tên game, AppID và kiến trúc sau khi quét. Nếu cần, bấm **Rescan**.
-4. Tìm kiếm, lọc và tick các achievement bạn thật sự muốn claim.
-5. Dùng **Quick select** nếu cần chọn hàng loạt. Việc chuyển bộ lọc không làm mất các lựa chọn trước đó.
-6. Kiểm tra số lượng đã chọn và bấm **Claim selected**.
-7. Đọc cửa sổ xác nhận (game, AppID, số lượng), sau đó quyết định có thực hiện hay không. Nút **Cancel** là lựa chọn mặc định.
-8. Mở **Activity log** để xem lỗi, dùng **Copy log** để sao chép nhật ký hoặc mở **View technical details** để xem thông tin Steam API.
-
-### Ảnh game không hiển thị
-
-Ứng dụng ưu tiên tải ảnh công khai từ Steam. Nếu không tải được ảnh bìa online, nó thử tìm ảnh đã có trong cache Steam trên máy, ví dụ `library_header.jpg`, `library_capsule.jpg` và `library_hero.jpg`. Trường hợp không có ảnh phù hợp, giao diện hiển thị ảnh thay thế; **việc thiếu ảnh không ảnh hưởng đến tính năng quét và lựa chọn thành tích**.
-
-### Đổi ngôn ngữ và màu giao diện
-
-Vào **Settings** để chuyển giữa tiếng Anh/Việt hoặc chọn theme. Phím tắt: **Ctrl+L** mở thư viện, **Ctrl+F** tìm achievement, **F5** quét lại. Thiết lập màu được lưu tại `%APPDATA%\UmiAchievementClaimer\theme.cfg`.
-
-### Tự build và kiểm thử
-
-Mở PowerShell trong thư mục dự án:
+### Build, kiểm thử và giải phóng dung lượng
 
 ```powershell
-Set-ExecutionPolicy -Scope Process Bypass
 .\build.ps1
 .\tests\run-ui.ps1
+.\tools\package-release.ps1 -SkipBuild -SkipTests
 ```
 
-Kết quả kiểm thử UI gần nhất trên máy phát triển: **115 PASS, 0 FAIL** (ngày 23/10/2026). Đây là bài kiểm thử với dữ liệu giả lập, **không phải** chứng nhận tính tương thích claim với mọi game Steam. File EXE trên máy sau lần build được ghi checksum trong `SHA256SUMS.txt`.
+Sau khi tạo gói portable mới thành công, chương trình đóng gói sẽ **tự xóa các ZIP phiên bản cũ trong `dist`**, chỉ giữ bản đang dùng. Các file đã commit vẫn tra cứu được trong lịch sử Git. Thư mục cấu hình/snapshot trong `%APPDATA%\UmiAchievementClaimer` được giữ nguyên.
 
-## Lưu ý an toàn
+**Lưu ý an toàn:** quét không thay đổi thành tích; Claim cần người dùng xác nhận. Một số game không tương thích với Steam API hoặc dùng achievement phía máy chủ. Dữ liệu kiểm thử UI giả lập không chứng minh Claim thành công trên Steam thực tế.
 
-- Quét chỉ đọc thông tin; ứng dụng không tự claim hoặc tự chọn achievement.
-- Mọi thao tác claim phải do người dùng lựa chọn và xác nhận.
-- Việc thay đổi achievement có thể ảnh hưởng hồ sơ Steam và **không đảm bảo hoàn tác được**.
-- Chỉ sử dụng với game và tài khoản Steam mà bạn có quyền truy cập.
-
-**Giấy phép:** Repo hiện chưa có file LICENSE. Tham khảo [mã nguồn](https://github.com/TDUmii/UmiAchievementClaimer), [kiến trúc](docs/ARCHITECTURE.md) và [lịch sử thay đổi](docs/CHANGELOG.md).
+Xem [báo cáo UI 1.11.2](docs/QA_V1_11_2_UI.md) và [lịch sử thay đổi](docs/CHANGELOG.md).
