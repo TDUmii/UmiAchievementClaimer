@@ -22,6 +22,22 @@ The interface prioritizes three actions: **choose a game → review/select achie
 - **Diagnostics:** collapsible Activity log with Copy log, enlarged readable log text, themed scrolling and expandable Steam API details.
 - **Appearance:** Steam Midnight, Carbon, Arcade and custom accent themes, plus English/Vietnamese controls in Settings.
 
+### Version 1.11.1: UI polish and no-achievement handling
+
+- **First-click Activity log:** readable light text immediately on opening, even before changing theme or minimizing the app.
+- **Search field:** uses the native Windows cue banner instead of an overlaid label, preventing half-cut placeholder text.
+- **Empty states:** first-run guidance and no-results messaging stay above the hidden native achievement grid. A successfully scanned game with zero achievements is a valid empty state, not an error, and Claim stays disabled.
+- **Settings and Insights:** redesigned visual hierarchy, typography and button spacing; Insights now presents three scannable KPI cards and a themed history list.
+- **Windows 11 frame:** asks Desktop Window Manager to suppress its border without disabling native window resizing (physical frame not captured by WinForms UI screenshots).
+
+![First-click Activity log after UI polish](docs/images/log-first-open-v1.11.1-en.png)
+
+![Improved Settings](docs/images/settings-v1.11.1-en.png)
+
+![Improved Insights Dashboard](docs/images/insights-v1.11.1-en.png)
+
+See [UI polish QA](docs/QA_V1_11_1_UI.md) for the tested cases and known limits.
+
 ### Version 1.11.0: Rarity, Timeline, Dashboard & Recovery
 
 The **Insights** button opens a local dashboard showing games, unlocked counts, snapshots and changes between scans. After each successful read-only scan, the app saves up to 30 distinct snapshots per game. Double-click a game in Insights to inspect its local timeline, or export the active game's latest snapshot as CSV.
@@ -74,7 +90,7 @@ Local development build checked on **October 23, 2026**:
 
 | Item | Local value |
 |---|---|
-| Product version reported by the project | `1.11.0` (local build; public release not yet published) |
+| Product version reported by the project | `1.11.1` (local build; public release not yet published) |
 | Executable | `dist\UmiAchievementClaimer.exe` (latest tested build) |
 | Size | Varies by build; check the latest `dist` executable |
 | SHA-256 | See `SHA256SUMS.txt` after the latest build |
@@ -154,7 +170,7 @@ The build places the newest executable in `dist\UmiAchievementClaimer.exe` and a
 .\tests\run-ui.ps1 -SkipBuild
 ```
 
-The latest local UI run completed **112 PASS / 0 FAIL** (October 23, 2026). The suite exercises synthetic game data, filtering, selection persistence, confirmation safety, settings, window geometry, and generated renders. It **does not** claim real Steam achievements or prove compatibility with any individual game. The 150% UI check simulates scaling rather than using a physical high-DPI screen. Native title-bar compositing is not captured by `DrawToBitmap`.
+The latest local UI run completed **115 PASS / 0 FAIL** (October 23, 2026). The suite exercises synthetic game data, filtering, selection persistence, confirmation safety, settings, window geometry, and generated renders. It **does not** claim real Steam achievements or prove compatibility with any individual game. The 150% UI check simulates scaling rather than using a physical high-DPI screen. Native title-bar compositing is not captured by `DrawToBitmap`.
 
 Render outputs are written to the ignored `.impeccable/review/` directory. The checked-in README screenshots were copied from those render outputs and show the current design without bundling Steam artwork into the application.
 
@@ -246,7 +262,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\tests\run-ui.ps1
 ```
 
-Kết quả kiểm thử UI gần nhất trên máy phát triển: **112 PASS, 0 FAIL** (ngày 23/10/2026). Đây là bài kiểm thử với dữ liệu giả lập, **không phải** chứng nhận tính tương thích claim với mọi game Steam. File EXE trên máy sau lần build được ghi checksum trong `SHA256SUMS.txt`.
+Kết quả kiểm thử UI gần nhất trên máy phát triển: **115 PASS, 0 FAIL** (ngày 23/10/2026). Đây là bài kiểm thử với dữ liệu giả lập, **không phải** chứng nhận tính tương thích claim với mọi game Steam. File EXE trên máy sau lần build được ghi checksum trong `SHA256SUMS.txt`.
 
 ## Lưu ý an toàn
 

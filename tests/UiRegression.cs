@@ -94,7 +94,7 @@ internal static class UiRegression
         string buildNumber = Convert.ToString(Microsoft.Win32.Registry.GetValue(
             @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuildNumber", null));
         if (accepted || int.TryParse(buildNumber, out build) && build >= 22000)
-            Check(accepted, name + " Windows accepts the requested black caption, black border and light caption text");
+            Check(accepted, name + " Windows accepts the requested dark caption, hidden/compatible border and light caption text");
         else
             Console.WriteLine("SKIP " + name + " explicit frame-color attributes unsupported by this Windows build");
 
@@ -447,6 +447,13 @@ internal static class UiRegression
             {
                 Prepare(form);
                 CheckWindowTheme(form, "main window");
+                // Reproduce the first log click before any theme switch (the original defect).
+                ((Button)Field(form, "logToggleButton")).PerformClick();
+                Check(Control(form, "logBox").Visible &&
+                    Control(form, "logBox").ForeColor.ToArgb() == Color.FromArgb(235, 241, 250).ToArgb(),
+                    "first log click before any theme change draws readable log text");
+                Capture(form, "log-first-open-en.png");
+                ((Button)Field(form, "logToggleButton")).PerformClick();
                 object grid = Field(form, "achievementList");
                 DataGridView table = (DataGridView)grid;
                 Button language = (Button)Field(form, "languageToggleButton");
@@ -465,11 +472,23 @@ internal static class UiRegression
                     "game summary sits above full-width achievement workspace");
                 Check(Control(form, "informationCard").Width == Control(form, "achievementCard").Width,
                     "game summary and workspace are aligned at full width");
-                Check(Control(form, "searchPlaceholderLabel").Visible, "search placeholder initially visible");
+                Check(!Control(form, "searchPlaceholderLabel").Visible && search.Text.Length == 0 &&
+                    search.AccessibleName.Contains("Search"),
+                    "native search cue replaces clipped overlay and retains accessible label");
                 Check(Control(form, "safeModeLabel").Height >= 14, "safety caption remains legible");
                 Check(Control(form, "appIdValue").Height >= 18 && Control(form, "architectureValue").Height >= 18,
                     "Steam game metadata values have enough vertical space");
-                Check(Control(form, "emptyLabel").Visible && Visible(grid) == 0, "initial empty state");
+                Check(Control(form, "emptyLabel").Visible && Visible(grid) == 0 && !Control(form, "achievementList").Visible,
+                    "initial empty state is above the hidden native achievement grid");
+                Check(Control(form, "emptyLabel").Text.Contains("GET STARTED"),
+                    "first-run guidance explains how to begin");
+                Call(form, "UpdateStatus", "empty-game");
+                Check(Control(form, "emptyLabel").Text.Contains("NO ACHIEVEMENTS AVAILABLE") &&
+                    !Control(form, "claimButton").Enabled &&
+                    Control(form, "statusLabel").Text.Contains("No achievements"),
+                    "game with zero achievements has a valid empty state and cannot Claim");
+                Capture(form, "zero-achievements-en.png");
+                Call(form, "UpdateStatus", "ready");
                 Check(Control(form, "preflightButton").Enabled && !Control(form, "cancelWorkerButton").Visible,
                     "preflight available while no worker is active and cancel hidden");
 
@@ -502,7 +521,9 @@ internal static class UiRegression
                 foreach (object item in items) Call(grid, "AddItem", item);
                 Call(form, "SetAchievementControlsEnabled", true); Call(form, "UpdateClaimButtonState");
                 Check(Checked(grid).Length == 0 && !Control(form, "claimButton").Enabled, "loaded rows are never automatically checked");
-                Check(Visible(grid) == 6, "all synthetic achievements are visible");
+                Check(Visible(grid) == 6 && Control(form, "achievementList").Visible &&
+                    !Control(form, "emptyLabel").Visible,
+                    "loaded achievements replace empty state with a visible grid");
                 Check(Control(form, "achievementProgressFill").Width > 0 &&
                     Control(form, "achievementProgressFill").Width < Control(form, "achievementProgressTrack").Width,
                     "achievement progress stripe reflects partial unlock rate");
@@ -525,7 +546,9 @@ internal static class UiRegression
                 search.Text = "COLLECTOR_100"; Check(Visible(grid) == 1, "search by API ID");
                 search.Text = "tiếng Việt"; Check(Visible(grid) == 1, "search by Unicode description");
                 search.Text = "no-such-achievement";
-                Check(Visible(grid) == 0 && Control(form, "emptyLabel").Visible, "zero-result search has empty state");
+                Check(Visible(grid) == 0 && Control(form, "emptyLabel").Visible &&
+                    !Control(form, "achievementList").Visible,
+                    "zero-result search displays a readable empty state rather than an underlying grid");
                 search.Text = ""; filters[1].PerformClick(); Check(Visible(grid) == 4, "Locked filter");
                 filters[2].PerformClick(); Check(Visible(grid) == 2, "Unlocked filter");
                 filters[0].PerformClick();
@@ -614,7 +637,9 @@ internal static class UiRegression
                 File.Copy(Path.Combine(output, "desktop-en.png"), Path.Combine(output, "hero-repro.png"), true);
 
                 ((Button)Field(form, "logToggleButton")).PerformClick();
-                Check(Control(form, "logBox").Visible && (bool)Field(form, "logExpanded"), "activity log expands");
+                Check(Control(form, "logBox").Visible && (bool)Field(form, "logExpanded") &&
+                    Control(form, "logBox").ForeColor.ToArgb() == Color.FromArgb(235,241,250).ToArgb(),
+                    "first activity log expansion uses readable dark-mode foreground before theme changes");
                 Check(Control(form, "logBox").Text.Contains("synthetic rows injected"), "activity log retains operation text");
                 Check(Control(form, "logBox").Height >= (form.ClientSize.Height >= 800 ? 70 : 30)
                     && table.Height >= table.RowTemplate.Height,

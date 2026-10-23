@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -23,6 +24,14 @@ internal sealed class ClaimerForm : Form
     private readonly Panel gameCard = new Panel();
     private readonly Panel pathInputFrame = new Panel();
     private readonly Panel searchHost = new Panel();
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hwnd, int message, IntPtr wparam, string text);
+    private void SetSearchCue()
+    {
+        if (searchBox.IsHandleCreated)
+            SendMessage(searchBox.Handle, 0x1501, new IntPtr(1),
+                L("Tìm achievement...", "Search achievements..."));
+    }
     private readonly Panel achievementListHost = new Panel();
     private readonly CardPanel informationCard = new CardPanel();
     private readonly CardPanel achievementCard = new CardPanel();
@@ -86,6 +95,7 @@ internal sealed class ClaimerForm : Form
     private readonly Button preflightButton = new UmiButton();
     private readonly Button insightsButton = new UmiButton();
     private string rarityAppId;
+    private bool workerReportedEmptyGame;
     private readonly Button cancelWorkerButton = new UmiButton();
     private readonly Button sortButton = new UmiButton();
     private readonly ContextMenuStrip sortMenu = new ContextMenuStrip();
@@ -257,7 +267,7 @@ internal sealed class ClaimerForm : Form
     private void BuildPage()
     {
         pageLayout.Dock = DockStyle.Fill;
-        pageLayout.Padding = new Padding(20, 14, 20, 16);
+        pageLayout.Padding = new Padding(18, 14, 18, 18);
         pageLayout.ColumnCount = 1;
         pageLayout.RowCount = 4;
         pageLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
@@ -376,7 +386,8 @@ internal sealed class ClaimerForm : Form
         achievementList.Bounds = new Rectangle(0, 0, width, height);
         emptyLabel.Bounds = new Rectangle(0, 0, width, height);
         achievementScrollBar.Bounds = new Rectangle(width, 0, barWidth, height);
-        if (emptyLabel.Visible) achievementList.BringToFront();
+        achievementList.Visible = !emptyLabel.Visible;
+        if (emptyLabel.Visible) emptyLabel.BringToFront();
         achievementScrollBar.BringToFront();
     }
 
@@ -554,13 +565,15 @@ internal sealed class ClaimerForm : Form
         searchPlaceholderLabel.TextAlign = ContentAlignment.MiddleLeft;
         searchPlaceholderLabel.Cursor = Cursors.IBeam;
         searchPlaceholderLabel.Click += delegate { searchBox.Focus(); };
+        searchPlaceholderLabel.Visible = false;
+        searchBox.HandleCreated += delegate { SetSearchCue(); };
         searchBox.Enter += delegate { searchPlaceholderLabel.Visible = false; };
-        searchBox.Leave += delegate { searchPlaceholderLabel.Visible = string.IsNullOrEmpty(searchBox.Text); };
+        searchBox.Leave += delegate { searchPlaceholderLabel.Visible = false; };
         searchHost.Resize += delegate { LayoutSearch(); };
         searchHost.MouseDown += delegate { searchBox.Focus(); };
         searchBox.TextChanged += delegate
         {
-            searchPlaceholderLabel.Visible = string.IsNullOrEmpty(searchBox.Text) && !searchBox.Focused;
+            searchPlaceholderLabel.Visible = false;
             ApplyAchievementFilter();
         };
         searchHost.Controls.Add(searchBox);
@@ -636,10 +649,11 @@ internal sealed class ClaimerForm : Form
         achievementList.MouseWheel += delegate(object sender, MouseEventArgs e) { achievementList.ScrollBy(e.Delta); UpdateAchievementScrollBar(); QueueVisibleArtwork(); };
         emptyLabel.Dock = DockStyle.None;
         emptyLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
-        emptyLabel.Padding = new Padding(0, 0, 14, 0);
         emptyLabel.TextAlign = ContentAlignment.MiddleCenter;
         emptyLabel.ForeColor = UiTheme.MutedText;
-        emptyLabel.Font = UiTheme.Font(11F);
+        emptyLabel.BackColor = UiTheme.Surface;
+        emptyLabel.Font = UiTheme.DisplayFont(11F);
+        emptyLabel.Padding = new Padding(20);
         achievementScrollBar.Dock = DockStyle.None;
         achievementScrollBar.Width = 12;
         achievementScrollBar.Margin = new Padding(0);
@@ -698,9 +712,10 @@ internal sealed class ClaimerForm : Form
     private void LayoutSearch()
     {
         int left = searchHost.Padding.Left + searchHintLabel.Width + 4;
-        searchPlaceholderLabel.Bounds = new Rectangle(left, 0,
-            Math.Max(10, searchHost.ClientSize.Width - left - 8), searchHost.ClientSize.Height);
         searchBox.Top = Math.Max(1, (searchHost.ClientSize.Height - searchBox.Height) / 2);
+        searchPlaceholderLabel.Bounds = new Rectangle(left, searchBox.Top,
+            Math.Max(10, searchHost.ClientSize.Width - left - 8), searchBox.Height);
+        searchPlaceholderLabel.SendToBack();
     }
 
     private void ClearMouseFocus()
@@ -741,7 +756,8 @@ internal sealed class ClaimerForm : Form
         logBox.WordWrap = false;
         logBox.BorderStyle = BorderStyle.None;
         logBox.BackColor = UiTheme.SurfaceMuted;
-        logBox.Font = new Font("Consolas", 10.5F);
+        logBox.ForeColor = UiTheme.Text; // Must apply BEFORE first expansion, not only after theme changes.
+        logBox.Font = new Font("Consolas", 10.0F);
         logViewport.Dock = DockStyle.Fill;
         logViewport.Margin = new Padding(0);
         logViewport.Padding = new Padding(10, 8, 7, 8);
@@ -914,6 +930,7 @@ internal sealed class ClaimerForm : Form
         filterButtons[2].Text = L("Đã mở", "Unlocked");
         searchHintLabel.Text = "⌕";
         searchPlaceholderLabel.Text = L("Tìm achievement...", "Search achievements...");
+        SetSearchCue();
         searchBox.AccessibleName = L("Tìm tên, mô tả hoặc API ID", "Search name, description or API ID");
         informationToolTip.SetToolTip(searchBox, searchBox.AccessibleName);
         languageToggleButton.Text = English ? "EN" : "VI";
@@ -982,6 +999,7 @@ internal sealed class ClaimerForm : Form
         selectedCountLabel.ForeColor = UiTheme.Text;
         confirmationHintLabel.ForeColor = UiTheme.MutedText;
         emptyLabel.ForeColor = UiTheme.MutedText;
+        emptyLabel.BackColor = UiTheme.Surface;
         for (int i = 0; i < metricValues.Length; i++)
             metricValues[i].ForeColor = i == 1 ? UiTheme.Success : i == 2 ? UiTheme.Warning : UiTheme.Text;
         for (int i = 0; i < captionLabels.Length; i++)
@@ -1039,6 +1057,10 @@ internal sealed class ClaimerForm : Form
         pageLayout.RowStyles[2].Height = expanded
             ? Math.Max(56F, Math.Min(desired, availableLogHeight))
             : 56F * scale;
+        // WinForms does not inherit foreground color from the dark viewport;
+        // apply explicitly every time the initially hidden native edit control is shown.
+        logBox.ForeColor = UiTheme.Text;
+        logBox.BackColor = UiTheme.SurfaceMuted;
         logBox.Visible = expanded;
         logViewport.Visible = expanded;
         if (expanded) BeginInvoke(new Action(LayoutLog));
@@ -1065,6 +1087,7 @@ internal sealed class ClaimerForm : Form
         statusLabel.Text = key == "scanning" ? L("Đang quét (chỉ đọc)", "Scanning (read-only)")
             : key == "claiming" ? L("Đang claim...", "Claiming...")
             : key == "complete" ? L("Hoàn tất", "Completed")
+            : key == "empty-game" ? L("0 thành tích", "No achievements")
             : key == "interrupted" ? L("Đã dừng - kiểm tra lại", "Interrupted - verify state")
             : key == "failed" ? L("Có lỗi - mở nhật ký", "Failed - open activity log") : L("Sẵn sàng", "Ready");
         statusLabel.ForeColor = key == "failed" || key == "interrupted" ? UiTheme.Warning : key == "scanning" || key == "claiming" ? UiTheme.Cyan : UiTheme.Success;
@@ -1303,6 +1326,7 @@ internal sealed class ClaimerForm : Form
     {
         bool workerStarted = false;
         workerStopReason = null;
+        workerReportedEmptyGame = false;
         lastVerifiedCount = -1;
         lastAcceptedCount = 0;
         try
@@ -1438,18 +1462,23 @@ internal sealed class ClaimerForm : Form
         metricValues[2].Text = (total - unlocked).ToString();
         selectedCountLabel.Text = selected + L(" đã chọn", " selected") + (hidden > 0 ? " (" + hidden + L(" ẩn)", " hidden)") : string.Empty);
         confirmationHintLabel.Text = L("Chỉ thay đổi sau khi xác nhận", "Nothing changes until confirmed");
-        searchPlaceholderLabel.Visible = string.IsNullOrEmpty(searchBox.Text) && !searchBox.Focused;
+        searchPlaceholderLabel.Visible = false;
         visibleCountLabel.Text = achievementList.VisibleCount + "/" + total + L(" mục", " shown");
         UpdateAchievementProgress();
         emptyLabel.Visible = achievementList.VisibleCount == 0;
-        if (emptyLabel.Visible) achievementList.BringToFront();
+        achievementList.Visible = !emptyLabel.Visible;
+        if (emptyLabel.Visible) emptyLabel.BringToFront();
         achievementScrollBar.BringToFront();
         UpdateAchievementScrollBar();
         emptyLabel.Text = statusKey == "scanning" ? L("Đang đọc danh sách achievement...\nThao tác quét không claim achievement.", "Reading achievements...\nScanning does not claim achievements.")
             : total > 0 ? L("Không có kết quả phù hợp.\nThử từ khóa hoặc bộ lọc khác.", "No matching achievements.\nTry another search or filter.")
+            : statusKey == "empty-game" ? L("GAME KHÔNG CÓ ACHIEVEMENT\nSteam báo game này có 0 thành tích. Bạn vẫn có thể chọn game khác.",
+                "NO ACHIEVEMENTS AVAILABLE\nSteam reports zero achievements for this game. Choose another game to continue.")
             : statusKey == "failed" ? L("Chưa tải được achievement.\nMở nhật ký để xem chi tiết và thử quét lại.", "Achievements could not be loaded.\nOpen the activity log for details, then scan again.")
             : L("BẮT ĐẦU VỚI GAME STEAM\nChọn 'Thư viện' để tìm game đã cài, hoặc chọn thư mục thủ công.", "GET STARTED WITH STEAM\nChoose 'My games' to find installed games, or browse a folder.");
-        achievementList.EmptyStateMessage = emptyLabel.Text;
+        // A native DataGridView draws its own HWND, so the original painted overlay
+        // could obscure the multi-line empty state. Use one real foreground label.
+        achievementList.EmptyStateMessage = null;
         achievementList.AccessibleDescription = emptyLabel.Visible ? emptyLabel.Text : L("Danh sách thành tích", "Achievement list");
         achievementList.Invalidate();
     }
@@ -1584,6 +1613,8 @@ internal sealed class ClaimerForm : Form
             return;
         }
 
+        if (e.Data == "RESULT=LIST_EMPTY")
+            workerReportedEmptyGame = true;
         if (e.Data.StartsWith("VERIFIED_COUNT=", StringComparison.Ordinal))
         {
             int count;
@@ -1618,10 +1649,12 @@ internal sealed class ClaimerForm : Form
 
             if (completedOperation == "list")
             {
-                bool loaded = exitCode == 0 && achievementList.Items.Count > 0;
-                SetAchievementControlsEnabled(loaded);
+                bool emptyGame = exitCode == 0 && workerReportedEmptyGame && achievementList.Items.Count == 0;
+                bool loaded = exitCode == 0 && (achievementList.Items.Count > 0 || emptyGame);
+                SetAchievementControlsEnabled(loaded && !emptyGame);
                 UpdateClaimButtonState();
-                UpdateStatus(!string.IsNullOrEmpty(interrupted) ? "interrupted" : loaded ? "complete" : "failed");
+                UpdateStatus(!string.IsNullOrEmpty(interrupted) ? "interrupted"
+                    : emptyGame ? "empty-game" : loaded ? "complete" : "failed");
                 if (loaded && detectedGame != null)
                 {
                     try
@@ -1635,7 +1668,10 @@ internal sealed class ClaimerForm : Form
                     { AppendLog(L("Không lưu được snapshot: ", "Snapshot not saved: ") + historyError.Message); }
                     LoadGlobalRarity(detectedGame.AppId);
                 }
-                AppendLog(loaded
+                AppendLog(emptyGame
+                    ? L("Steam trả về 0 achievement. Đây là kết quả hợp lệ, không phải lỗi.",
+                        "Steam returned zero achievements. This is a valid empty game, not a scan failure.")
+                    : loaded
                     ? L("Đã tải ", "Loaded ") + achievementList.Items.Count + L(" achievement. Mặc định chưa chọn mục nào.", " achievements. Nothing is selected by default.")
                     : L("Không tải được danh sách achievement. Xem log phía trên.", "Could not load the achievement list. Check the log above."));
                 return;
