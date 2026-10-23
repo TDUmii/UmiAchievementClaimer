@@ -474,8 +474,10 @@ internal static class UiRegression
                 Application.DoEvents();
                 Control viewport = Control(form, "logViewport");
                 Control log = Control(form, "logBox");
+                int availableTextHeight = Math.Max(1, viewport.ClientSize.Height - viewport.Padding.Vertical);
                 Check(viewport.Visible && log.Visible && log.Width > 250 &&
-                    log.Height > 40 && log.Bottom <= viewport.ClientSize.Height &&
+                    log.Height >= availableTextHeight - 1 &&
+                    log.Bottom <= viewport.ClientSize.Height &&
                     log.Right <= viewport.ClientSize.Width,
                     "first Activity log click synchronously lays out full log text area");
                 Capture(form, "log-first-open-en.png");
