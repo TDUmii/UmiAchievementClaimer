@@ -26,3 +26,20 @@ Claiming changes Steam profile data and may not be fully reversible. The confirm
 Native UI checks use synthetic games and achievement states; the artwork check exercises public Steam downloads. DWM checks establish setter acceptance and dark-mode readback, while client render captures do not establish composed titlebar pixel colors. Simulated scaling does not establish behavior on a physical high-DPI display. These checks do not prove a real Steam scan or claim for a target game.
 
 See [DESIGN.md](DESIGN.md) for the shipped visual system, [README.md](README.md) for build and usage instructions, and [architecture](docs/ARCHITECTURE.md) for the worker boundary.
+
+
+## Installed-game discovery and first-run UX (2026-10-23)
+
+- The initial call to action is **My games / Thư viện**, opening a keyboard-accessible, searchable picker of locally installed Steam games. The picker reads Steam's appmanifests, does not run a Steam worker, and never changes achievements.
+- Users can search by name or AppID. The **Browse** fallback remains available for games outside discoverable Steam libraries.
+- Library enumeration and game detection avoid blocking the window. Controls cannot initiate competing scans while detection is in progress.
+- **Rescan** is disabled when no valid folder has been selected. Search, filters, selection and Claim remain explicit.
+- **Ctrl+L**, **Ctrl+F** and **F5** speed up common workflows. The empty state shows the next step and activity-log expansion preserves an achievement row even at the minimum window size.
+- Client-only synthetic UI tests do not establish real Steam claim support or accessibility across every physical display.
+
+## Version 1.10.0 safety and convenience
+
+- No automatic Claim, retry or recovery after a cancelled/timed-out write operation. Verification is limited to readback via the local Steam API; no claim about remote-server persistence.
+- Preflight is read-only; worker timeouts are 90 seconds (list) and 120 seconds (selected claim).
+- Favorites/recent games persist only numeric AppIDs. Achievement sorting does not modify selected items.
+- A reproducible Windows portable package and tag-triggered GitHub Actions workflow support release preparation. Public release is not equivalent to Steam compatibility certification.

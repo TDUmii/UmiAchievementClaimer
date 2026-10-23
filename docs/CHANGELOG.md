@@ -1,3 +1,36 @@
+## 1.10.0 - 2026-10-23 (local build, not yet released)
+
+### Steam reliability and safety
+
+- New read-only compatibility preflight for Steam process, game root, numeric AppID, API source, target architecture and compatibility-provider warnings.
+- A visible cancel action and bounded worker runtime (90 seconds for reading; 120 seconds for a claim). Interrupted changes are reported as uncertain; no automatic claim retry.
+- Parse worker `VERIFIED_COUNT` and per-achievement acceptance lines, show clear local readback counts and distinguish local verification from Steam server synchronization.
+
+### User experience
+
+- Favorites-only and recently used ordering in the installed-game picker, saving only AppIDs to local AppData.
+- Achievement sort modes: original, A-Z, locked first, unlocked first.
+- Read-only achievement inspector with status, ID, name, artwork and description.
+- Main toolbar/inspector updated after visual QA while retaining Steam Midnight design and bilingual strings.
+
+### Build and quality
+
+- Portable ZIP and SHA-256 manifest via `tools/package-release.ps1`.
+- GitHub Actions Windows build, synthetic UI regression and upload-artifact; GitHub Release publication on an explicit version tag.
+- Expanded native synthetic UI regressions: **98 PASS, 0 FAIL** on the development PC.
+- No live Steam achievement claim or account modification performed by QA.
+
+## Unreleased - Steam Library & UX completion (2026-10-23)
+
+- Added a searchable installed-game picker (**My games / Thư viện**) using local Steam appmanifests and libraryfolders, with explicit manual-folder fallback.
+- Steam library discovery runs asynchronously; the game's Steam API detection also runs off the UI thread.
+- Added clear first-run empty state, accessible search controls, a dark themed library scrollbar and bilingual labels.
+- Added Ctrl+L (library), Ctrl+F (achievement search), F5 (rescan) keyboard shortcuts.
+- Made the expanded Activity log retain at least one achievement row at minimum supported window dimensions.
+- Updated build handling: an EXE locked by Windows no longer aborts compilation; the newest artifact remains under dist and UI tests always target it.
+- Added synthetic manifest traversal/Unicode/search, picker overflow, themed scrollbar and minimum-size regression coverage.
+- Validation: **83 PASS, 0 FAIL** native synthetic UI tests, independent discovery of 16 locally installed games. Steam claim compatibility and physical DPI not re-certified; no live achievements were claimed.
+
 ## Unreleased - Steam Midnight v2 UI
 
 - Replaced the fixed game sidebar with a full-width horizontal game summary, including game metadata, unlock progress and folder controls.

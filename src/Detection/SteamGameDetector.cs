@@ -356,7 +356,7 @@ internal static class SteamGameDetector
         return best;
     }
 
-    private static IEnumerable<string> FindSteamLibraries(string selected)
+    internal static IEnumerable<string> FindSteamLibraries(string selected)
     {
         HashSet<string> libraries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         string marker = Path.DirectorySeparatorChar + "steamapps" + Path.DirectorySeparatorChar + "common" + Path.DirectorySeparatorChar;

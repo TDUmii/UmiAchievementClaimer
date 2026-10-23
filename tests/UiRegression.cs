@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -110,16 +111,28 @@ internal static class UiRegression
         catch (EntryPointNotFoundException) { Console.WriteLine("SKIP " + name + " DWM readback unavailable on this system"); }
     }
 
+    private static void EnsureOfflineArtwork(string path, Color color, int width, int height)
+    {
+        if (File.Exists(path)) return;
+        using (Bitmap bitmap = new Bitmap(width, height))
+        using (Graphics graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(color);
+            using (SolidBrush accent = new SolidBrush(Color.FromArgb(165, 154, 232)))
+                graphics.FillEllipse(accent, width / 4, height / 4, width / 2, height / 2);
+            bitmap.Save(path, ImageFormat.Png);
+        }
+    }
+
     private static void CheckArtworkFixture()
     {
         string coverPath = Path.Combine(output, "portal2-cover.png");
         string unlockedPath = Path.Combine(output, "portal2-icon-unlocked.png");
         string lockedPath = Path.Combine(output, "portal2-icon-locked.png");
-        if (!File.Exists(coverPath) || !File.Exists(unlockedPath) || !File.Exists(lockedPath))
-        {
-            Console.WriteLine("SKIP artwork fixture capture: supply portal2-cover.png, portal2-icon-unlocked.png and portal2-icon-locked.png in the output directory");
-            return;
-        }
+        // Prefer existing Steam artwork; CI uses generated synthetic artwork offline.
+        EnsureOfflineArtwork(coverPath, Color.FromArgb(26, 50, 77), 256, 160);
+        EnsureOfflineArtwork(unlockedPath, Color.FromArgb(20, 89, 79), 64, 64);
+        EnsureOfflineArtwork(lockedPath, Color.FromArgb(77, 45, 51), 64, 64);
 
         using (Form form = (Form)New("ClaimerForm"))
         {
@@ -190,6 +203,8 @@ internal static class UiRegression
                 "expanded Steam API and User Stats cells do not overlap");
             Check(Inside(form, Control(form, "claimButton")) && Inside(form, Control(form, "searchBox")),
                 "minimum artwork layout keeps Claim and search inside the client");
+            DataGridView minGrid = (DataGridView)Field(form, "achievementList");
+            Check(minGrid.Height >= minGrid.RowTemplate.Height, "minimum artwork layout preserves a full achievement row with log expanded");
             CaptureClient(form, "artwork-minimum-details-log-client.png");
             Call(form, "ClearArtwork");
             Check(Field(form, "steamArtwork") == null && images.Count == 0 && coverView.Image == null,
@@ -228,6 +243,102 @@ internal static class UiRegression
         return control.Visible && bounds.Width > 0 && bounds.Height > 0 && form.ClientRectangle.Contains(bounds);
     }
 
+    private static void CheckSteamLibrary()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "UmiCatalogTest_" + Guid.NewGuid().ToString("N"));
+        string steamapps = Path.Combine(root, "steamapps");
+        string common = Path.Combine(steamapps, "common");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(common, "Portal 2"));
+            Directory.CreateDirectory(Path.Combine(common, "Game Việt"));
+            Directory.CreateDirectory(Path.Combine(root, "elsewhere"));
+            File.WriteAllText(Path.Combine(steamapps, "appmanifest_620.acf"),
+                "\"AppState\"\n{\n\"appid\" \"620\"\n\"name\" \"Portal 2\"\n\"installdir\" \"Portal 2\"\n}", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(steamapps, "appmanifest_900.acf"),
+                "\"AppState\"\n{\n\"appid\" \"900\"\n\"name\" \"Trò chơi Việt\"\n\"installdir\" \"Game Việt\"\n}", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(steamapps, "appmanifest_901.acf"),
+                "\"AppState\"\n{\n\"appid\" \"901\"\n\"name\" \"Outside\"\n\"installdir\" \"..\\\\..\\\\elsewhere\"\n}", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(steamapps, "appmanifest_bad.acf"),
+                "\"AppState\" { \"appid\" \"NOT_NUMERIC\" \"installdir\" \"Missing\" }", Encoding.UTF8);
+
+            Type catalogType = application.GetType("UmiAchievementClaimer.SteamLibraryCatalog");
+            AppDomain.CurrentDomain.SetData("UmiAchievementClaimer.TestLibraryPath",
+                Path.Combine(root, "synthetic-library-preferences.txt"));
+            Type preflightType = application.GetType("UmiAchievementClaimer.SteamPreflight");
+            object preflight = preflightType.GetMethod("Inspect", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+                .Invoke(null, new object[] { null, false });
+            Check(((IEnumerable)preflight).Cast<string>().Count() == 2,
+                "read-only preflight explains missing Steam and missing game");
+
+            object result = catalogType.GetMethod("FromLibraries", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+                .Invoke(null, new object[] { new string[] { root, root, Path.Combine(root, "missing") } });
+            object[] found = ((IEnumerable)result).Cast<object>().ToArray();
+            Check(found.Length == 2, "Steam library inventories only installed valid manifest games");
+            Check(found.Any(x => (string)Field(x, "AppId") == "620") &&
+                  found.Any(x => (string)Field(x, "Name") == "Trò chơi Việt"), "Steam library preserves app IDs and Unicode game names");
+            Check(found.All(x => ((string)Field(x, "Folder")).StartsWith(common + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)),
+                "Steam library ignores folders outside steamapps/common");
+
+            Type pickerType = application.GetType("UmiAchievementClaimer.SteamLibraryDialog");
+            using (Form dialog = (Form)Activator.CreateInstance(pickerType, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance,
+                null, new object[] { true, false }, null))
+            {
+                Prepare(dialog);
+                CheckWindowTheme(dialog, "Steam library picker");
+                Type gameType = application.GetType("UmiAchievementClaimer.SteamInstalledGame");
+                Array typedGames = Array.CreateInstance(gameType, found.Length);
+                for (int i = 0; i < found.Length; i++) typedGames.SetValue(found[i], i);
+                Call(dialog, "Populate", typedGames);
+                ListBox list = (ListBox)Field(dialog, "games");
+                TextBox query = (TextBox)Field(dialog, "query");
+                Check(list.Items.Count == 2, "Steam game picker shows installed game list");
+                Button favorite = (Button)Field(dialog, "favorite");
+                Button favoritesOnly = (Button)Field(dialog, "favoritesOnly");
+                favorite.PerformClick();
+                favoritesOnly.PerformClick();
+                Check(list.Items.Count == 1 &&
+                    ((string)Field(list.Items[0], "AppId")) == "620",
+                    "favorites-only Steam picker retains only favorited game");
+                favoritesOnly.PerformClick();
+                Check(list.Items.Count == 2, "favorites filter restores full installed library");
+                query.Text = "NOT_FOUND";
+                Check(list.Items.Count == 0 && !Control(dialog, "choose").Enabled, "Steam game picker has empty-search and safe-disabled selection");
+                query.Text = "620";
+                Check(list.Items.Count == 1 && Control(dialog, "choose").Enabled, "Steam game picker searches by Steam AppID");
+                query.Text = "";
+                Check(list.Items.Count == 2 && SingleRowsFit(dialog), "Steam picker restores searchable games with fitted actions");
+                Capture(dialog, "steam-library-en.png");
+                Array longLibrary = Array.CreateInstance(gameType, 24);
+                for (int i = 0; i < longLibrary.Length; i++)
+                {
+                    object sample = Activator.CreateInstance(gameType, true);
+                    Set(sample, "Name", "Installed Sample Game " + (i + 1).ToString("00"));
+                    Set(sample, "AppId", (1000 + i).ToString());
+                    Set(sample, "Folder", Path.Combine(common, "Game " + i));
+                    longLibrary.SetValue(sample, i);
+                }
+                Call(dialog, "Populate", longLibrary);
+                Check(list.Items.Count == 24, "Steam picker handles a large installed-game library");
+                Control libraryBar = Control(dialog, "libraryScroll");
+                Check(libraryBar.Visible && libraryBar.Width == 12, "large Steam library uses the themed scrollbar");
+                SetProperty(Field(dialog, "libraryScroll"), "Value", 4);
+                Check(list.TopIndex >= 4, "Steam library themed scrollbar navigates the list");
+                SetProperty(Field(dialog, "libraryScroll"), "Value", 0);
+                Capture(dialog, "steam-library-overflow-en.png");
+                Call(dialog, "Populate", typedGames);
+                ((Button)Field(dialog, "choose")).PerformClick();
+                Check(dialog.DialogResult == DialogResult.OK && !string.IsNullOrEmpty((string)Property(dialog, "SelectedPath")),
+                    "Steam game picker returns an explicit selected installation path");
+            }
+        }
+        finally
+        {
+            try { if (Directory.Exists(root)) Directory.Delete(root, true); } catch { }
+            AppDomain.CurrentDomain.SetData("UmiAchievementClaimer.TestLibraryPath", null);
+        }
+    }
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -256,6 +367,7 @@ internal static class UiRegression
                 TextBox search = (TextBox)Field(form, "searchBox");
                 Button[] filters = (Button[])Field(form, "filterButtons");
                 Check(!Control(form, "claimButton").Enabled && Checked(grid).Length == 0, "initial Claim disabled and nothing selected");
+                Check(Control(form, "libraryButton").Enabled && !Control(form, "scanButton").Enabled, "discoverable Steam library action and disabled empty-path scan");
                 Check(Control(form, "informationCard").Top < Control(form, "achievementCard").Top,
                     "game summary sits above full-width achievement workspace");
                 Check(Control(form, "informationCard").Width == Control(form, "achievementCard").Width,
@@ -265,6 +377,9 @@ internal static class UiRegression
                 Check(Control(form, "appIdValue").Height >= 18 && Control(form, "architectureValue").Height >= 18,
                     "Steam game metadata values have enough vertical space");
                 Check(Control(form, "emptyLabel").Visible && Visible(grid) == 0, "initial empty state");
+                Check(Control(form, "preflightButton").Enabled && !Control(form, "cancelWorkerButton").Visible,
+                    "preflight available while no worker is active and cancel hidden");
+
                 Capture(form, "empty-en.png");
 
                 object game = New("DetectedGame");
@@ -289,6 +404,19 @@ internal static class UiRegression
                 Check(Control(form, "achievementProgressFill").Width > 0 &&
                     Control(form, "achievementProgressFill").Width < Control(form, "achievementProgressTrack").Width,
                     "achievement progress stripe reflects partial unlock rate");
+                SetProperty(grid, "SortMode", 1);
+                Check((string)Field(table.Rows[0].Tag, "Id") == "LONG_NAME",
+                    "achievement sort A-Z orders by display name");
+                SetProperty(grid, "SortMode", 2);
+                Check(!(bool)Field(table.Rows[0].Tag, "Achieved") &&
+                    (bool)Field(table.Rows[table.Rows.Count - 1].Tag, "Achieved"),
+                    "achievement locked-first sort prioritizes locked items");
+                SetProperty(grid, "SortMode", 3);
+                Check((bool)Field(table.Rows[0].Tag, "Achieved"),
+                    "achievement unlocked-first sort prioritizes unlocked items");
+                SetProperty(grid, "SortMode", 0);
+                Check((string)Field(table.Rows[0].Tag, "Id") == "FIRST_STEPS",
+                    "default order restored without losing achievements");
 
                 search.Text = "explorer"; Check(Visible(grid) == 1, "search by title ignores case");
                 Check(!Control(form, "searchPlaceholderLabel").Visible, "search placeholder hides when filled");
@@ -305,6 +433,11 @@ internal static class UiRegression
                 ((Button)Field(form, "selectionMenuButton")).PerformClick();
                 ContextMenuStrip menu = (ContextMenuStrip)Field(form, "selectionMenu");
                 Check(menu.Items.Count == 3 && menu.Renderer != null, "selection menu exposes three themed actions");
+                ((Button)Field(form, "sortButton")).PerformClick();
+                ContextMenuStrip sortMenu = (ContextMenuStrip)Field(form, "sortMenu");
+                Check(sortMenu.Items.Count == 4 && sortMenu.Renderer != null,
+                    "sort menu provides four themed sorting modes");
+                sortMenu.Close();
                 menu.Close();
                 search.Text = "Explorer";
                 Check(Checked(grid).Length == 1 && Control(form, "selectedCountLabel").Text.Contains("1 hidden"), "filter preserves and discloses hidden selections");
@@ -324,22 +457,66 @@ internal static class UiRegression
                 Check(selectedIds.SequenceEqual(new[] { "FIRST_STEPS", "MASTER_EXPLORER" }), "selection file contains only the explicitly selected API IDs");
                 Call(form, "CleanupWorker"); Check(!File.Exists(selectionPath), "temporary selection file cleaned up");
                 Check(Field(form, "workerProcess") == null, "UI and serialization checks never start a worker");
+                for (int scenario = 0; scenario < 2; scenario++)
+                {
+                    using (Process fakeWorker = new Process())
+                    {
+                        fakeWorker.StartInfo = new ProcessStartInfo
+                        {
+                            FileName = "powershell.exe",
+                            Arguments = "-NoProfile -NonInteractive -Command Start-Sleep -Seconds 15",
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+                        fakeWorker.Start();
+                        Set(form, "workerProcess", fakeWorker);
+                        Call(form, "StopWorker", scenario == 0);
+                        bool stopped = fakeWorker.WaitForExit(5000);
+                        Check(stopped && (string)Field(form, "workerStopReason") ==
+                            (scenario == 0 ? "timeout" : "cancelled"),
+                            scenario == 0 ? "worker timeout terminates synthetic process" :
+                                "manual cancellation terminates synthetic process");
+                        Set(form, "workerProcess", null);
+                        Set(form, "workerStopReason", null);
+                    }
+                }
+
+                var outputCtor = typeof(DataReceivedEventArgs).GetConstructor(
+                    BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(string) }, null);
+                Check(outputCtor != null, "worker output protocol fixture can be constructed");
+                if (outputCtor != null)
+                {
+                    Call(form, "WorkerOutput", null, outputCtor.Invoke(new object[] { "VERIFIED_COUNT=3" }));
+                    Call(form, "WorkerOutput", null, outputCtor.Invoke(new object[] { "[OK]   FIRST_STEPS" }));
+                    Check((int)Field(form, "lastVerifiedCount") == 3 &&
+                        (int)Field(form, "lastAcceptedCount") == 1,
+                        "claim verification report tracks verified and accepted results separately");
+                    Application.DoEvents();
+                }
 
                 Call(form, "SetBusy", true);
-                string[] busyControls = { "browseButton", "scanButton", "pathBox", "languageToggleButton", "themeButton", "settingsButton", "searchBox", "achievementList", "selectAllButton", "selectLockedButton", "clearSelectionButton", "selectionMenuButton", "claimButton" };
+                string[] busyControls = { "preflightButton", "sortButton", "libraryButton", "browseButton", "pathBox", "languageToggleButton", "themeButton", "settingsButton", "searchBox", "achievementList", "selectAllButton", "selectLockedButton", "clearSelectionButton", "selectionMenuButton", "claimButton" };
                 Check(busyControls.All(name => !Control(form, name).Enabled) && filters.All(button => !button.Enabled), "busy state locks game, language, filters and selection");
                 Call(form, "SetBusy", false);
-                Check(busyControls.All(name => Control(form, name).Enabled) && filters.All(button => button.Enabled), "idle state restores appropriate controls");
+                Check(busyControls.All(name => Control(form, name).Enabled) && filters.All(button => button.Enabled)
+                    && Control(form, "scanButton").Enabled == Directory.Exists(Control(form, "pathBox").Text), "idle state restores appropriate controls and respects valid scan path");
                 Call(form, "AppendLog", "UI TEST: synthetic rows injected; no Steam scan or claim was performed.");
                 Report("browse", Control(form, "browseButton")); Report("scan", Control(form, "scanButton"));
                 Report("filter-all", filters[0]); Report("desktop-grid", table);
                 Check(SingleRowsFit(form), "all single-row layout children fit their parents");
+                Report("sort-control", Control(form, "sortButton"));
+                Check(Inside(form, Control(form, "sortButton")) &&
+                    Control(form, "sortButton").Text.Contains("Sort:"),
+                    "achievement sorting button visible and labeled in main workspace");
                 Capture(form, "desktop-en.png");
                 File.Copy(Path.Combine(output, "desktop-en.png"), Path.Combine(output, "hero-repro.png"), true);
 
                 ((Button)Field(form, "logToggleButton")).PerformClick();
                 Check(Control(form, "logBox").Visible && (bool)Field(form, "logExpanded"), "activity log expands");
                 Check(Control(form, "logBox").Text.Contains("synthetic rows injected"), "activity log retains operation text");
+                Check(Control(form, "logBox").Height >= (form.ClientSize.Height >= 800 ? 70 : 30)
+                    && table.Height >= table.RowTemplate.Height,
+                    "expanded activity log adapts to available viewport and preserves achievements");
                 Report("expanded-log-grid", table); Report("expanded-log", Control(form, "logBox"));
                 Capture(form, "log-en.png");
                 ((Button)Field(form, "logToggleButton")).PerformClick();
@@ -373,6 +550,15 @@ internal static class UiRegression
                     Check(confirmation.AcceptButton.DialogResult == DialogResult.Cancel, "default action has Cancel result");
                     Check(SingleRowsFit(confirmation), "confirmation action buttons fit their layout row");
                     Capture(confirmation, "confirmation-en.png");
+                    using (Form inspect = (Form)Activator.CreateInstance(application.GetType("UmiAchievementClaimer.AchievementInspector"),
+                        BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance, null,
+                        new object[] { items[0], null, true }, null))
+                    {
+                        Prepare(inspect);
+                        Check(SingleRowsFit(inspect) && inspect.Controls.Count > 0,
+                            "achievement inspector displays read-only details without altering claim selection");
+                        Capture(inspect, "achievement-inspector-en.png");
+                    }
                     confirmation.AcceptButton.PerformClick();
                     Check(confirmation.DialogResult == DialogResult.Cancel, "default action cancels confirmation");
                 }
@@ -401,6 +587,7 @@ internal static class UiRegression
                 Check(Inside(form, Control(form, "claimButton")), "150-percent geometry and font simulation keeps Claim visible");
                 Check(Field(form, "workerProcess") == null && Field(form, "selectedAchievementFile") == null, "no worker or temporary selection remains");
             }
+            CheckSteamLibrary();
             CheckArtworkFixture();
             Console.WriteLine("RESULT " + passed + " PASS, " + failed + " FAIL");
             Console.WriteLine("Scope: synthetic UI regression, cached public-artwork fixture rendering, DWM frame-color request acceptance and dark-mode readback only; Steam runtime and physical DPI are not exercised.");

@@ -7,6 +7,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace UmiAchievementClaimer
@@ -38,6 +39,7 @@ internal sealed class ClaimerForm : Form
     private readonly Label coverFallback = new Label();
     private readonly Label safeModeLabel = new Label();
     private readonly TextBox pathBox = new TextBox();
+    private readonly Button libraryButton = new UmiButton();
     private readonly Button browseButton = new UmiButton();
     private readonly Button scanButton = new UmiButton();
     private readonly Label[] captionLabels = new Label[5];
@@ -81,9 +83,20 @@ internal sealed class ClaimerForm : Form
     private readonly Button languageToggleButton = new UmiButton();
     private readonly Button themeButton = new UmiButton();
     private readonly Button settingsButton = new UmiButton();
+    private readonly Button preflightButton = new UmiButton();
+    private readonly Button cancelWorkerButton = new UmiButton();
+    private readonly Button sortButton = new UmiButton();
+    private readonly ContextMenuStrip sortMenu = new ContextMenuStrip();
+    private readonly System.Windows.Forms.Timer workerTimer = new System.Windows.Forms.Timer();
+    private readonly Stopwatch workerClock = new Stopwatch();
+    private string workerStopReason;
+    private int lastVerifiedCount = -1;
+    private int lastAcceptedCount;
+
     private readonly ToolTip informationToolTip = new ToolTip();
     private DetectedGame detectedGame;
     private Process workerProcess;
+    private bool detectingGame;
     private string extractedWorker;
     private string extractedSteamApiDirectory;
     private string selectedAchievementFile;
@@ -111,6 +124,7 @@ internal sealed class ClaimerForm : Form
         ForeColor = UiTheme.Text;
         AutoScaleMode = AutoScaleMode.Dpi;
         DoubleBuffered = true;
+        KeyPreview = true;
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); }
         catch { }
         BuildHeader();
@@ -122,7 +136,35 @@ internal sealed class ClaimerForm : Form
         themeButton.Click += OpenSettings;
         settingsButton.Click += OpenSettings;
         UiTheme.Changed += ThemeChanged;
+        workerTimer.Interval = 1000;
+        workerTimer.Tick += delegate
+        {
+            if (workerProcess != null && workerClock.Elapsed.TotalSeconds > (workerOperation == "selected" ? 120 : 90))
+                StopWorker(true);
+        };
+
         AppendLog(L("Sẵn sàng. Hãy chọn thư mục cài game Steam.", "Ready. Select a Steam game installation folder."));
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == (Keys.Control | Keys.F) && searchBox.Enabled)
+        {
+            searchBox.Focus();
+            searchBox.SelectAll();
+            return true;
+        }
+        if (keyData == (Keys.Control | Keys.L) && libraryButton.Enabled)
+        {
+            OpenSteamLibrary(this, EventArgs.Empty);
+            return true;
+        }
+        if (keyData == Keys.F5 && scanButton.Enabled)
+        {
+            DetectSelectedGame();
+            return true;
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     private void BuildHeader()
@@ -161,6 +203,19 @@ internal sealed class ClaimerForm : Form
         settingsButton.AccessibleName = "Open settings";
         settingsButton.Width = 92;
         settingsButton.Height = 32;
+        ConfigureButton(preflightButton, UmiButtonStyle.Secondary);
+        preflightButton.Text = "PREFLIGHT";
+        preflightButton.Width = 96;
+        preflightButton.Height = 32;
+        preflightButton.Click += ShowPreflight;
+        preflightButton.AccessibleName = "Check Steam compatibility and prerequisites";
+        ConfigureButton(cancelWorkerButton, UmiButtonStyle.Secondary);
+        cancelWorkerButton.Text = "CANCEL";
+        cancelWorkerButton.Width = 84;
+        cancelWorkerButton.Height = 32;
+        cancelWorkerButton.Visible = false;
+        cancelWorkerButton.Click += delegate { StopWorker(false); };
+
         ConfigureButton(settingsButton, UmiButtonStyle.Ghost);
         settingsButton.Padding = new Padding(4, 0, 4, 0);
         steamStatusLabel.Dock = DockStyle.Fill;
@@ -169,7 +224,7 @@ internal sealed class ClaimerForm : Form
         FlowLayoutPanel actions = new FlowLayoutPanel
         {
             Dock = DockStyle.Right,
-            Width = 208,
+            Width = 312,
             Height = 48,
             FlowDirection = FlowDirection.RightToLeft,
             WrapContents = false,
@@ -177,6 +232,8 @@ internal sealed class ClaimerForm : Form
             Margin = new Padding(0)
         };
         actions.Controls.Add(settingsButton);
+        actions.Controls.Add(cancelWorkerButton);
+        actions.Controls.Add(preflightButton);
         Panel steamStatusHost = new Panel { Width = 108, Height = 32, Margin = new Padding(0, 0, 6, 0) };
         steamStatusHost.Controls.Add(steamStatusLabel);
         actions.Controls.Add(steamStatusHost);
@@ -214,9 +271,10 @@ internal sealed class ClaimerForm : Form
     {
         gameCard.Dock = DockStyle.Fill;
         gameCard.Margin = new Padding(0);
-        TableLayoutPanel pathLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Margin = new Padding(0) };
-        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        TableLayoutPanel pathLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 2, Margin = new Padding(0) };
+        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
+        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
+        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
         pathLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
         pathLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         pathInputFrame.Dock = DockStyle.Fill;
@@ -251,18 +309,25 @@ internal sealed class ClaimerForm : Form
         pathInputFrame.Resize += delegate { LayoutPathBox(); };
         LayoutPathBox();
         pathLayout.Controls.Add(pathInputFrame, 0, 0);
-        pathLayout.SetColumnSpan(pathInputFrame, 2);
+        pathLayout.SetColumnSpan(pathInputFrame, 3);
 
+        ConfigureButton(libraryButton, UmiButtonStyle.Primary);
+        libraryButton.Dock = DockStyle.Fill;
+        libraryButton.Margin = new Padding(0, 0, 4, 0);
+        libraryButton.Click += OpenSteamLibrary;
         ConfigureButton(browseButton, UmiButtonStyle.Secondary);
         browseButton.Dock = DockStyle.Fill;
-        browseButton.Margin = new Padding(0, 0, 5, 0);
+        browseButton.Margin = new Padding(4, 0, 4, 0);
         browseButton.Click += BrowseForGame;
         ConfigureButton(scanButton, UmiButtonStyle.Secondary);
         scanButton.Dock = DockStyle.Fill;
-        scanButton.Margin = new Padding(5, 0, 0, 0);
+        scanButton.Margin = new Padding(4, 0, 0, 0);
         scanButton.Click += delegate { DetectSelectedGame(); };
-        pathLayout.Controls.Add(browseButton, 0, 1);
-        pathLayout.Controls.Add(scanButton, 1, 1);
+        scanButton.Enabled = false;
+        pathBox.TextChanged += delegate { scanButton.Enabled = workerProcess == null && Directory.Exists(pathBox.Text); };
+        pathLayout.Controls.Add(libraryButton, 0, 1);
+        pathLayout.Controls.Add(browseButton, 1, 1);
+        pathLayout.Controls.Add(scanButton, 2, 1);
         gameCard.Controls.Add(pathLayout);
         gameFolderTitleLabel.Visible = false;
     }
@@ -302,7 +367,7 @@ internal sealed class ClaimerForm : Form
         achievementList.Bounds = new Rectangle(0, 0, width, height);
         emptyLabel.Bounds = new Rectangle(0, 0, width, height);
         achievementScrollBar.Bounds = new Rectangle(width, 0, barWidth, height);
-        if (emptyLabel.Visible) emptyLabel.BringToFront();
+        if (emptyLabel.Visible) achievementList.BringToFront();
         achievementScrollBar.BringToFront();
     }
 
@@ -445,11 +510,19 @@ internal sealed class ClaimerForm : Form
         achievementHintLabel.Font = UiTheme.Font(9F);
         heading.Controls.Add(achievementTitleLabel);
         heading.Controls.Add(achievementHintLabel);
+        ConfigureButton(sortButton, UmiButtonStyle.Ghost);
+        sortButton.Size = new Size(154, 29);
+        sortButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        sortButton.Location = new Point(heading.Width - 154, 0);
+        sortButton.Click += ShowSortMenu;
+        sortMenu.Renderer = new UmiToolStripRenderer();
+        sortMenu.ShowImageMargin = false;
         workspace.Controls.Add(heading, 0, 0);
 
-        TableLayoutPanel toolbar = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Margin = new Padding(0, 4, 0, 9) };
+        TableLayoutPanel toolbar = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, Margin = new Padding(0, 4, 0, 9) };
         toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270F));
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 154F));
         toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 142F));
         toolbar.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -521,7 +594,10 @@ internal sealed class ClaimerForm : Form
         selectionMenuButton.Click += ShowSelectionMenu;
         selectionMenu.Renderer = new UmiToolStripRenderer();
         selectionMenu.ShowImageMargin = false;
-        toolbar.Controls.Add(selectionMenuButton, 2, 0);
+        sortButton.Dock = DockStyle.Fill;
+        sortButton.Margin = new Padding(0, 0, 8, 0);
+        toolbar.Controls.Add(sortButton, 2, 0);
+        toolbar.Controls.Add(selectionMenuButton, 3, 0);
         selectAllButton.Click += delegate { SetAchievementChecks(delegate { return true; }); };
         selectLockedButton.Click += delegate { SetAchievementChecks(item => !item.Achieved); };
         clearSelectionButton.Click += delegate { achievementList.ClearChecks(); };
@@ -536,6 +612,14 @@ internal sealed class ClaimerForm : Form
         achievementList.ArtworkProvider = GetAchievementImage;
         achievementList.ChecksChanged += delegate { UpdateClaimButtonState(); };
         achievementList.SelectedItemChanged += delegate { UpdateAchievementDescription(); };
+        achievementList.CellDoubleClick += delegate(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || !achievementList.Enabled) return;
+            AchievementItem selected = achievementList.Rows[e.RowIndex].Tag as AchievementItem;
+            if (selected == null) return;
+            using (AchievementInspector details = new AchievementInspector(selected, GetAchievementImage(selected), English))
+                details.ShowDialog(this);
+        };
         achievementList.Scroll += delegate { UpdateAchievementScrollBar(); QueueVisibleArtwork(); };
         achievementList.Resize += delegate { UpdateAchievementScrollBar(); QueueVisibleArtwork(); };
         achievementList.RowsAdded += delegate { UpdateAchievementScrollBar(); };
@@ -721,6 +805,42 @@ internal sealed class ClaimerForm : Form
         ClearMouseFocus();
     }
 
+    private void ShowSortMenu(object sender, EventArgs e)
+    {
+        sortMenu.Items.Clear();
+        string[] descriptions = English
+            ? new[] { "Default order", "Name A-Z", "Locked first", "Unlocked first" }
+            : new[] { "Thứ tự gốc", "Tên A-Z", "Chưa mở trước", "Đã mở trước" };
+        for (int index = 0; index < descriptions.Length; index++)
+        {
+            int chosen = index;
+            ToolStripMenuItem item = new ToolStripMenuItem(descriptions[index]);
+            item.Checked = achievementList.SortMode == index;
+            item.ForeColor = UiTheme.Text;
+            item.BackColor = UiTheme.Surface;
+            item.Click += delegate { achievementList.SortMode = chosen; UpdateSortButton(); };
+            sortMenu.Items.Add(item);
+        }
+        sortMenu.Show(sortButton, new Point(0, sortButton.Height));
+    }
+
+    private void UpdateSortButton()
+    {
+        string[] modes = English
+            ? new[] { "Default", "Name A-Z", "Locked first", "Unlocked first" }
+            : new[] { "Mặc định", "Tên A-Z", "Chưa mở", "Đã mở" };
+        sortButton.Text = L("Sắp xếp: ", "Sort: ") + modes[achievementList.SortMode] + " ▾";
+    }
+
+    private void ShowPreflight(object sender, EventArgs e)
+    {
+        bool steamRunning = Process.GetProcessesByName("steam").Length > 0;
+        var details = SteamPreflight.Inspect(detectedGame, steamRunning);
+        MessageBox.Show(this, string.Join(Environment.NewLine + Environment.NewLine, details),
+            L("Kiểm tra khả năng tương thích", "Compatibility preflight"), MessageBoxButtons.OK,
+            details.Any(line => line.StartsWith("[!]")) ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+    }
+
     private void AddSelectionMenuItem(string text, EventHandler action)
     {
         ToolStripItem item = selectionMenu.Items.Add(text);
@@ -754,7 +874,12 @@ internal sealed class ClaimerForm : Form
         subtitleLabel.Visible = false;
         gameFolderTitleLabel.Text = L("Thư mục cài game Steam", "Steam game installation folder");
         pathCueLabel.Text = L("CHỌN THƯ MỤC GAME", "SELECT GAME FOLDER");
-        browseButton.Text = L("Chọn thư mục", "Browse folder");
+        libraryButton.Text = L("Thư viện", "My games");
+        browseButton.Text = L("Thư mục", "Browse");
+        libraryButton.AccessibleName = L("Chọn game từ thư viện Steam", "Choose an installed Steam game");
+        informationToolTip.SetToolTip(libraryButton, libraryButton.AccessibleName + " (Ctrl+L)");
+        informationToolTip.SetToolTip(scanButton, L("Quét lại game hiện tại (F5)", "Rescan the current game (F5)"));
+        informationToolTip.SetToolTip(searchBox, L("Tìm achievement (Ctrl+F)", "Search achievements (Ctrl+F)"));
         scanButton.Text = L("Quét lại", "Rescan");
         pathBox.AccessibleName = gameFolderTitleLabel.Text;
         detectionTitleLabel.Text = L("THƯ MỤC GAME STEAM", "STEAM GAME FOLDER");
@@ -785,6 +910,9 @@ internal sealed class ClaimerForm : Form
         languageToggleButton.Text = English ? "EN" : "VI";
         languageToggleButton.AccessibleDescription = English ? "Switch to Vietnamese" : "Chuyển sang English";
         settingsButton.Text = L("CÀI ĐẶT", "SETTINGS");
+        preflightButton.Text = L("KIỂM TRA", "PREFLIGHT");
+        cancelWorkerButton.Text = L("HỦY", "CANCEL");
+        UpdateSortButton();
         settingsButton.AccessibleDescription = L("Mở cài đặt giao diện và ngôn ngữ", "Open language and theme settings");
         informationToolTip.SetToolTip(settingsButton, settingsButton.AccessibleDescription);
         informationToolTip.SetToolTip(themeButton, L("Đổi theme giao diện", "Change interface theme") + "  /  " + UiTheme.ActiveName);
@@ -849,6 +977,7 @@ internal sealed class ClaimerForm : Form
         for (int i = 0; i < captionLabels.Length; i++)
             if (captionLabels[i] != null) captionLabels[i].ForeColor = UiTheme.MutedText;
 
+        UiTheme.StyleButton(libraryButton, UmiButtonStyle.Primary);
         UiTheme.StyleButton(browseButton, UmiButtonStyle.Secondary);
         UiTheme.StyleButton(scanButton, UmiButtonStyle.Secondary);
         UiTheme.StyleButton(detailsButton, UmiButtonStyle.Ghost);
@@ -862,6 +991,9 @@ internal sealed class ClaimerForm : Form
         UiTheme.StyleButton(languageToggleButton, UmiButtonStyle.Ghost);
         UiTheme.StyleButton(themeButton, UmiButtonStyle.Ghost);
         UiTheme.StyleButton(settingsButton, UmiButtonStyle.Ghost);
+        UiTheme.StyleButton(preflightButton, UmiButtonStyle.Secondary);
+        UiTheme.StyleButton(cancelWorkerButton, UmiButtonStyle.Secondary);
+        UiTheme.StyleButton(sortButton, UmiButtonStyle.Ghost);
         foreach (Button filter in filterButtons)
             if (filter != null) UiTheme.StyleButton(filter, UmiButtonStyle.Ghost);
         logBox.BackColor = UiTheme.SurfaceMuted;
@@ -887,7 +1019,15 @@ internal sealed class ClaimerForm : Form
     {
         logExpanded = expanded;
         float scale = Font.Height / 15F;
-        pageLayout.RowStyles[2].Height = (expanded ? (ClientSize.Height / scale < 800 ? 200F : 250F) : 56F) * scale;
+        float desired = (ClientSize.Height / scale < 720 ? 100F : ClientSize.Height / scale < 810 ? 156F : 205F) * scale;
+        // Reserve the full toolbar/footer and at least one achievement row before expanding diagnostics.
+        float minimumAchievementHeight = achievementCard.Padding.Vertical + 49F + 54F + 30F + 65F +
+            Math.Max(54, achievementList.RowTemplate.Height);
+        float availableLogHeight = pageLayout.ClientSize.Height - pageLayout.Padding.Vertical - 206F -
+            minimumAchievementHeight;
+        pageLayout.RowStyles[2].Height = expanded
+            ? Math.Max(56F, Math.Min(desired, availableLogHeight))
+            : 56F * scale;
         logBox.Visible = expanded;
         logViewport.Visible = expanded;
         if (expanded) BeginInvoke(new Action(LayoutLog));
@@ -914,8 +1054,9 @@ internal sealed class ClaimerForm : Form
         statusLabel.Text = key == "scanning" ? L("Đang quét (chỉ đọc)", "Scanning (read-only)")
             : key == "claiming" ? L("Đang claim...", "Claiming...")
             : key == "complete" ? L("Hoàn tất", "Completed")
+            : key == "interrupted" ? L("Đã dừng - kiểm tra lại", "Interrupted - verify state")
             : key == "failed" ? L("Có lỗi - mở nhật ký", "Failed - open activity log") : L("Sẵn sàng", "Ready");
-        statusLabel.ForeColor = key == "failed" ? UiTheme.Warning : key == "scanning" || key == "claiming" ? UiTheme.Cyan : UiTheme.Success;
+        statusLabel.ForeColor = key == "failed" || key == "interrupted" ? UiTheme.Warning : key == "scanning" || key == "claiming" ? UiTheme.Cyan : UiTheme.Success;
         bool steamRunning = Process.GetProcessesByName("steam").Length > 0;
         steamStatusLabel.Text = steamRunning ? L("Steam đang chạy", "Steam running") : L("Steam chưa mở", "Steam not running");
         steamStatusLabel.ForeColor = steamRunning ? UiTheme.Success : UiTheme.MutedText;
@@ -926,7 +1067,11 @@ internal sealed class ClaimerForm : Form
     {
         progress.Visible = busy;
         pageLayout.RowStyles[3].Height = busy ? 3F * Font.Height / 15F : 0F;
-        browseButton.Enabled = scanButton.Enabled = pathBox.Enabled = languageToggleButton.Enabled = themeButton.Enabled = settingsButton.Enabled = !busy;
+        browseButton.Enabled = libraryButton.Enabled = pathBox.Enabled = languageToggleButton.Enabled = themeButton.Enabled = settingsButton.Enabled = preflightButton.Enabled = !busy;
+        cancelWorkerButton.Visible = busy && workerProcess != null;
+        cancelWorkerButton.Enabled = workerProcess != null && string.IsNullOrEmpty(workerStopReason);
+        sortButton.Enabled = !busy;
+        scanButton.Enabled = !busy && Directory.Exists(pathBox.Text);
         searchBox.Enabled = !busy;
         foreach (Button button in filterButtons) button.Enabled = !busy;
         SetAchievementControlsEnabled(!busy && achievementList.Items.Count > 0);
@@ -1019,6 +1164,21 @@ internal sealed class ClaimerForm : Form
         achievementList.Invalidate();
     }
 
+    private void OpenSteamLibrary(object sender, EventArgs e)
+    {
+        if (workerProcess != null || detectingGame) return;
+        using (SteamLibraryDialog dialog = new SteamLibraryDialog(English))
+        {
+            DialogResult result = dialog.ShowDialog(this);
+            if (result == DialogResult.Retry) { BrowseForGame(sender, e); return; }
+            if (result == DialogResult.OK && Directory.Exists(dialog.SelectedPath))
+            {
+                pathBox.Text = dialog.SelectedPath;
+                DetectSelectedGame();
+            }
+        }
+    }
+
     private void BrowseForGame(object sender, EventArgs e)
     {
         if (workerProcess != null) return;
@@ -1039,9 +1199,14 @@ internal sealed class ClaimerForm : Form
         }
     }
 
-    private void DetectSelectedGame()
+    private async void DetectSelectedGame()
     {
         if (workerProcess != null) return;
+        if (detectingGame) return;
+        detectingGame = true;
+        string scanPath = pathBox.Text;
+        bool scanEnglish = English;
+        SetBusy(true);
         UpdateStatus("scanning");
         claimButton.Enabled = false;
         ClearArtwork();
@@ -1052,7 +1217,10 @@ internal sealed class ClaimerForm : Form
         AppendLog(L("Đang quét: ", "Scanning: ") + pathBox.Text);
         try
         {
-            detectedGame = SteamGameDetector.Detect(pathBox.Text, English);
+            detectedGame = await Task.Run(() => SteamGameDetector.Detect(scanPath, scanEnglish));
+            if (IsDisposed || Disposing) return;
+            detectingGame = false;
+            SetBusy(false);
             SetInformation(detectedGame);
             LoadGameArtwork(detectedGame.AppId);
             AppendLog(L("Nhận diện thành công: ", "Detected successfully: ") + detectedGame.Name + " (AppID " + detectedGame.AppId + ", " + detectedGame.Architecture + ")");
@@ -1062,6 +1230,9 @@ internal sealed class ClaimerForm : Form
         }
         catch (Exception error)
         {
+            if (IsDisposed || Disposing) return;
+            detectingGame = false;
+            SetBusy(false);
             UpdateStatus("failed");
             AppendLog(L("LỖI NHẬN DIỆN: ", "DETECTION ERROR: ") + error.Message);
             MessageBox.Show(error.Message, L("Không nhận diện được game", "Could not detect the game"), MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1094,6 +1265,9 @@ internal sealed class ClaimerForm : Form
     private void StartWorker(string operation, string selectionPath)
     {
         bool workerStarted = false;
+        workerStopReason = null;
+        lastVerifiedCount = -1;
+        lastAcceptedCount = 0;
         try
         {
             extractedWorker = ExtractWorker(detectedGame.Architecture);
@@ -1129,6 +1303,9 @@ internal sealed class ClaimerForm : Form
             if (!workerStarted) throw new InvalidOperationException("Worker did not start.");
             workerProcess.BeginOutputReadLine();
             workerProcess.BeginErrorReadLine();
+            workerClock.Restart();
+            workerTimer.Start();
+            cancelWorkerButton.Visible = true;
         }
         catch (Exception error)
         {
@@ -1138,12 +1315,33 @@ internal sealed class ClaimerForm : Form
             progress.Style = ProgressBarStyle.Blocks;
             if (workerProcess != null) workerProcess.Dispose();
             workerProcess = null;
+            workerTimer.Stop();
+            workerClock.Reset();
             SetBusy(false);
             UpdateStatus("failed");
             CleanupWorker();
             SetAchievementControlsEnabled(achievementList.Items.Count > 0);
             UpdateClaimButtonState();
         }
+    }
+
+    private void StopWorker(bool timeout)
+    {
+        if (workerProcess == null || !string.IsNullOrEmpty(workerStopReason)) return;
+        try
+        {
+            if (workerProcess.HasExited) return;
+            workerStopReason = timeout ? "timeout" : "cancelled";
+            cancelWorkerButton.Enabled = false;
+            AppendLog(timeout
+                ? L("Worker quá thời gian cho phép, đang dừng. Nếu đang Claim, kết quả chưa chắc chắn.",
+                    "Worker timed out and is stopping. Any in-progress claim may have an uncertain outcome.")
+                : L("Đã yêu cầu hủy worker. Nếu đang Claim, hãy kiểm tra lại trạng thái trong Steam.",
+                    "Worker cancellation requested. If claiming, verify the state again in Steam."));
+            workerProcess.Kill();
+        }
+        catch (InvalidOperationException) { workerStopReason = null; }
+        catch (Exception error) { AppendLog(error.Message); }
     }
 
     private void SetInformation(DetectedGame game)
@@ -1207,13 +1405,16 @@ internal sealed class ClaimerForm : Form
         visibleCountLabel.Text = achievementList.VisibleCount + "/" + total + L(" mục", " shown");
         UpdateAchievementProgress();
         emptyLabel.Visible = achievementList.VisibleCount == 0;
-        if (emptyLabel.Visible) emptyLabel.BringToFront();
+        if (emptyLabel.Visible) achievementList.BringToFront();
         achievementScrollBar.BringToFront();
         UpdateAchievementScrollBar();
         emptyLabel.Text = statusKey == "scanning" ? L("Đang đọc danh sách achievement...\nThao tác quét không claim achievement.", "Reading achievements...\nScanning does not claim achievements.")
             : total > 0 ? L("Không có kết quả phù hợp.\nThử từ khóa hoặc bộ lọc khác.", "No matching achievements.\nTry another search or filter.")
             : statusKey == "failed" ? L("Chưa tải được achievement.\nMở nhật ký để xem chi tiết và thử quét lại.", "Achievements could not be loaded.\nOpen the activity log for details, then scan again.")
-            : L("Bắt đầu với một game Steam\nChọn thư mục và quét để xem achievement.", "Start with a Steam game\nChoose its folder and scan to see achievements.");
+            : L("BẮT ĐẦU VỚI GAME STEAM\nChọn 'Thư viện' để tìm game đã cài, hoặc chọn thư mục thủ công.", "GET STARTED WITH STEAM\nChoose 'My games' to find installed games, or browse a folder.");
+        achievementList.EmptyStateMessage = emptyLabel.Text;
+        achievementList.AccessibleDescription = emptyLabel.Visible ? emptyLabel.Text : L("Danh sách thành tích", "Achievement list");
+        achievementList.Invalidate();
     }
 
 
@@ -1330,6 +1531,14 @@ internal sealed class ClaimerForm : Form
             return;
         }
 
+        if (e.Data.StartsWith("VERIFIED_COUNT=", StringComparison.Ordinal))
+        {
+            int count;
+            if (int.TryParse(e.Data.Substring("VERIFIED_COUNT=".Length), out count))
+                System.Threading.Interlocked.Exchange(ref lastVerifiedCount, count);
+        }
+        if (e.Data.StartsWith("[OK]", StringComparison.Ordinal))
+            System.Threading.Interlocked.Increment(ref lastAcceptedCount);
         BeginInvoke(new Action<string>(AppendLog), e.Data);
     }
 
@@ -1341,13 +1550,17 @@ internal sealed class ClaimerForm : Form
         string completedOperation = workerOperation;
         BeginInvoke(new Action(delegate
         {
+            workerTimer.Stop();
+            workerClock.Reset();
+            string interrupted = workerStopReason;
+            workerStopReason = null;
             AppendLog(L("Worker kết thúc với exit code ", "Worker finished with exit code ") + exitCode + ".");
             progress.Style = ProgressBarStyle.Blocks;
             completedProcess.Dispose();
             workerProcess = null;
             workerOperation = null;
             SetBusy(false);
-            UpdateStatus(exitCode == 0 ? "complete" : "failed");
+            UpdateStatus(!string.IsNullOrEmpty(interrupted) ? "interrupted" : exitCode == 0 ? "complete" : "failed");
             CleanupWorker();
 
             if (completedOperation == "list")
@@ -1355,7 +1568,7 @@ internal sealed class ClaimerForm : Form
                 bool loaded = exitCode == 0 && achievementList.Items.Count > 0;
                 SetAchievementControlsEnabled(loaded);
                 UpdateClaimButtonState();
-                UpdateStatus(loaded ? "complete" : "failed");
+                UpdateStatus(!string.IsNullOrEmpty(interrupted) ? "interrupted" : loaded ? "complete" : "failed");
                 AppendLog(loaded
                     ? L("Đã tải ", "Loaded ") + achievementList.Items.Count + L(" achievement. Mặc định chưa chọn mục nào.", " achievements. Nothing is selected by default.")
                     : L("Không tải được danh sách achievement. Xem log phía trên.", "Could not load the achievement list. Check the log above."));
@@ -1364,14 +1577,24 @@ internal sealed class ClaimerForm : Form
 
             SetAchievementControlsEnabled(achievementList.Items.Count > 0);
             UpdateClaimButtonState();
-            MessageBox.Show(
-                exitCode == 0
-                    ? L("Đã gửi thành công ", "Successfully submitted ") + lastClaimCount + L(" achievement đã chọn. Hãy kiểm tra Steam.", " selected achievement(s). Check Steam.")
-                    : L("Quá trình chưa hoàn tất. Xem nhật ký để biết lỗi.", "The operation did not complete. Check the log for details."),
-                exitCode == 0 ? L("Hoàn tất", "Complete") : L("Có lỗi", "Error"),
-                MessageBoxButtons.OK,
-                exitCode == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
-            if (exitCode == 0)
+            int verified = System.Threading.Interlocked.CompareExchange(ref lastVerifiedCount, 0, 0);
+            int accepted = System.Threading.Interlocked.CompareExchange(ref lastAcceptedCount, 0, 0);
+            bool verifiedAll = string.IsNullOrEmpty(interrupted) && exitCode == 0 &&
+                verified >= lastClaimCount && lastClaimCount > 0;
+            string details = !string.IsNullOrEmpty(interrupted)
+                ? L("Worker bị hủy hoặc quá thời gian. Trạng thái achievement có thể đã thay đổi một phần.",
+                    "Worker cancelled or timed out. Achievement state may have changed partially.")
+                : L("Steam API xác nhận cục bộ ", "Steam API locally verified ") +
+                    Math.Max(0, verified) + "/" + lastClaimCount +
+                    L(" achievement. Đã chấp nhận: ", " achievement(s). Accepted: ") + accepted + "/" + lastClaimCount + ".";
+            AppendLog(details);
+            MessageBox.Show(this,
+                details + Environment.NewLine + Environment.NewLine +
+                L("Đây là kết quả đọc lại qua Steam API, chưa xác minh đồng bộ máy chủ.",
+                  "This is a Steam API readback, not independent confirmation of server synchronization."),
+                verifiedAll ? L("Đã xác minh cục bộ", "Locally verified") : L("Cần kiểm tra lại", "Review required"),
+                MessageBoxButtons.OK, verifiedAll ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            if (string.IsNullOrEmpty(interrupted) && Process.GetProcessesByName("steam").Length > 0)
                 LoadAchievements();
         }));
     }
@@ -1513,6 +1736,9 @@ internal sealed class ClaimerForm : Form
     {
         UiTheme.Changed -= ThemeChanged;
         ClearArtwork();
+        workerTimer.Stop();
+        workerTimer.Dispose();
+        sortMenu.Dispose();
         selectionMenu.Dispose();
         if (brandLogo.Image != null) brandLogo.Image.Dispose();
         informationToolTip.Dispose();

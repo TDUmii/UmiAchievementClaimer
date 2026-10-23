@@ -157,3 +157,14 @@ Cards have gently rounded corners (14px) and buttons use a tighter radius (8px).
 - **Don't** auto-select achievements, lose hidden checks during filtering, or make confirmation the default Enter action.
 - **Don't** let artwork availability block review, selection or confirmation.
 - **Don't** infer composed titlebar pixels, physical DPI behavior or real Steam claim compatibility from client-only synthetic render captures.
+
+
+## Steam library picker and compact-state finish (2026-10-23)
+
+The game summary's folder action row has three controls: lavender **My games** (primary discovery entry), **Browse** (manual fallback), and **Rescan** (disabled until a valid path is available). The corresponding picker has a focused heading, short guidance, in-theme search, two-line game rows with AppID and path, a custom dark scrollbar for overflowing libraries, a visible result count and explicit Scan / Cancel / Browse actions. The picker never auto-selects a game to claim.
+
+The achievement explorer renders its empty-state guidance directly in the grid's paint pass to stay visible over native child-window composition. Keyboard shortcuts are Ctrl+L, Ctrl+F and F5. On smaller windows, expanding the diagnostics panel prioritizes retaining at least one complete achievement row. Discovery and detection use asynchronous read-only operations; the interface shows busy status while scanning. The Windows-native titlebar remains system-composited, and client DrawToBitmap captures do not verify its exact pixels.
+
+## Native UI additions — v1.10.0
+
+The main toolbar now has a compact Sort control beside the status filters and Quick select menu, preserving the Steam Midnight dark surfaces. A Preflight command is visible in the native header. The Cancel button appears only during worker execution, and all status reports distinguish cancelled/timed-out operations from ordinary errors. Double-clicking an achievement opens a read-only details dialog. The Steam library dialog offers Favorites-only filtering and a favorite toggle; cards continue to use a concise two-line, accessible game list. See docs/QA_V1_10.md for scope and validation limits.
