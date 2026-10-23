@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -339,6 +339,99 @@ internal static class UiRegression
         }
     }
 
+    private static void CheckInsightsAndHistory()
+    {
+        string sandbox = Path.Combine(Path.GetTempPath(), "UmiInsightsTest_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(sandbox);
+        AppDomain.CurrentDomain.SetData("UmiAchievementClaimer.TestHistoryPath", sandbox);
+        try
+        {
+            Type history = application.GetType("UmiAchievementClaimer.AchievementHistory");
+            Type rarity = application.GetType("UmiAchievementClaimer.SteamRarity");
+            object beforeOne = Item("SAFE", "Safety first", "Read-only fixture", false);
+            object beforeTwo = Item("FORMULA", "=HYPERLINK(fake)", "CSV formula fixture", false);
+            object afterOne = Item("SAFE", "Safety first", "Read-only fixture", true);
+            object afterTwo = Item("FORMULA", "=HYPERLINK(fake)", "CSV formula fixture", false);
+            Array initial = Array.CreateInstance(beforeOne.GetType(), 2);
+            initial.SetValue(beforeOne, 0); initial.SetValue(beforeTwo, 1);
+            Array updated = Array.CreateInstance(afterOne.GetType(), 2);
+            updated.SetValue(afterOne, 0); updated.SetValue(afterTwo, 1);
+            Set(afterOne, "UnlockUnix", (long)1700000000);
+            object first = history.GetMethod("Create", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { "620", "Synthetic Portal 2", initial });
+            object second = history.GetMethod("Create", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { "620", "Synthetic Portal 2", updated });
+            object saved1 = history.GetMethod("Save", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { first });
+            object duplicate = history.GetMethod("Save", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { first });
+            object saved2 = history.GetMethod("Save", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { second });
+            Check((bool)saved1 && !(bool)duplicate && (bool)saved2,
+                "history keeps changed snapshots but avoids duplicate state");
+            object snapshots = history.GetMethod("Read", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { "620" });
+            Check(((IEnumerable)snapshots).Cast<object>().Count() == 2,
+                "history persists two readable snapshots");
+            string[] changes = (string[])history.GetMethod("Changes", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { first, second });
+            Check(changes.Length == 1 && changes[0] == "Safety first",
+                "snapshot comparison identifies newly unlocked achievement");
+            Array selectedForRecovery = Array.CreateInstance(beforeOne.GetType(), 1);
+            selectedForRecovery.SetValue(beforeOne, 0);
+            history.GetMethod("SavePending", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { "620", initial, selectedForRecovery });
+            object pending = history.GetMethod("ReadPending", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { "620" });
+            Check(pending != null, "pre-claim recovery note survives disk roundtrip");
+            string recovery = (string)history.GetMethod("RecoverySummary", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { pending, updated, true });
+            Check(recovery.Contains("Newly unlocked: 1") && recovery.Contains("server"),
+                "recovery distinguishes observed unlock from remote server synchronization");
+            string csv = (string)history.GetMethod("ExportCsv", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { second });
+            Check(csv.Contains("'=HYPERLINK") && csv.Contains("SAFE") && csv.Contains("2023"),
+                "CSV export includes unlock time and protects formula cells");
+            string sample = @"{""achievementpercentages"":{""achievements"":[{""name"":""SAFE"",""percent"":""3.5""},{""name"":""FORMULA"",""percent"":""28.2""}]}}";
+            object parsed = rarity.GetMethod("Parse", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { sample });
+            var pairs = (IDictionary)parsed;
+            Check(pairs.Count == 2 && Math.Abs((double)pairs["SAFE"] - 3.5) < .01,
+                "Steam global rarity parser handles public percent values");
+            string tier = (string)rarity.GetMethod("Tier", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { 3.5, true });
+            Check(tier == "Ultra rare", "rare achievement tier is derived from actual percentage");
+
+            using (Form insights = (Form)Activator.CreateInstance(
+                application.GetType("UmiAchievementClaimer.InsightsDialog"),
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
+                null, new object[] { "620", updated, true }, null))
+            {
+                Prepare(insights);
+                Check(Control(insights, "export").Enabled &&
+                      Control(insights, "rescan").Enabled &&
+                      Control(insights, "clearPending").Visible,
+                    "Insights shows export, read-only recovery and pending review actions");
+                Check(((ListBox)Field(insights, "history")).Items.Count == 1 &&
+                    Control(insights, "summary").Text.Contains("2/2") == false &&
+                    Control(insights, "summary").Text.Contains("1/2"),
+                    "Dashboard summarizes local achievement progress without inventing game counts");
+                Capture(insights, "insights-dashboard-en.png");
+                Check(SingleRowsFit(insights), "Insights dashboard action row fits its window");
+            }
+            history.GetMethod("ClearPending", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { "620" });
+            Check(history.GetMethod("ReadPending", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { "620" }) == null,
+                "dismissed recovery note is removed without touching Steam");
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.SetData("UmiAchievementClaimer.TestHistoryPath", null);
+            try { Directory.Delete(sandbox, true); } catch { }
+        }
+    }
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -380,6 +473,15 @@ internal static class UiRegression
                 Check(Control(form, "preflightButton").Enabled && !Control(form, "cancelWorkerButton").Visible,
                     "preflight available while no worker is active and cancel hidden");
 
+                string token = Convert.ToBase64String(Encoding.UTF8.GetBytes("TEST_TIME"));
+                string encoded = "ACHIEVEMENT=0|1|" + token + "|" + token + "|" + token;
+                object timed = Call(form, "ParseAchievement", encoded + "|1700000000");
+                object classic = Call(form, "ParseAchievement", encoded);
+                Check((long)Field(timed, "UnlockUnix") == 1700000000L &&
+                    (long)Field(classic, "UnlockUnix") == 0,
+                    "worker protocol accepts optional Steam unlock timestamp without breaking legacy rows");
+                Check(Control(form, "insightsButton").Enabled,
+                    "Insights Dashboard available without active Steam worker");
                 Capture(form, "empty-en.png");
 
                 object game = New("DetectedGame");
@@ -587,6 +689,7 @@ internal static class UiRegression
                 Check(Inside(form, Control(form, "claimButton")), "150-percent geometry and font simulation keeps Claim visible");
                 Check(Field(form, "workerProcess") == null && Field(form, "selectedAchievementFile") == null, "no worker or temporary selection remains");
             }
+            CheckInsightsAndHistory();
             CheckSteamLibrary();
             CheckArtworkFixture();
             Console.WriteLine("RESULT " + passed + " PASS, " + failed + " FAIL");

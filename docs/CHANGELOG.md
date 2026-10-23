@@ -1,3 +1,14 @@
+## 1.11.0 — 2026-10-23 (Insights, local build)
+
+- Introduced public global achievement rarity percentages with honest unavailable-state fallback.
+- Optional Steam API unlock Unix time passed through compatible extended worker protocol.
+- Local snapshot history with duplicate detection and 30-snapshot retention per AppID, timeline and progress comparison.
+- New Steam Midnight Insights Dashboard: read-only recovery status, snapshot counts and safe CSV export.
+- Pending selected-claim snapshot enables review after interrupted or uncertain outcomes; no automatic retry.
+- Read-only version check against public official GitHub Releases, no automatic binary installation.
+- Updated Windows synthetic regression suite: 112 PASS / 0 FAIL; no real claims performed.
+- Snapshot storage is per Windows profile + AppID, not automatically isolated by Steam account ID.
+
 ## 1.10.0 - 2026-10-23 (local build, not yet released)
 
 ### Steam reliability and safety

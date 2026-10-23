@@ -20,11 +20,12 @@ namespace UmiAchievementClaimer
             ShowInTaskbar = false;
             AutoScaleMode = AutoScaleMode.Dpi;
 
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4 };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5 };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 94));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
 
             var banner = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.Surface, Padding = new Padding(12) };
@@ -58,13 +59,25 @@ namespace UmiAchievementClaimer
             ToolTip tooltip = new ToolTip();
             tooltip.SetToolTip(description, description.Text);
             layout.Controls.Add(description, 0, 2);
+            string when = item.UnlockUnix > 0
+                ? new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(item.UnlockUnix).ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                : (english ? "Not available" : "Không có dữ liệu");
+            string rarity = item.GlobalPercent < 0 ? "N/A"
+                : item.GlobalPercent.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "% (" +
+                    SteamRarity.Tier(item.GlobalPercent, english) + ")";
+            var meta = new Label {
+                Dock = DockStyle.Fill, ForeColor = UiTheme.MutedText, Font = UiTheme.Font(9F),
+                Text = (english ? "Global rarity: " : "Độ hiếm: ") + rarity + "    " +
+                    (english ? "Unlocked at: " : "Mở khóa lúc: ") + when
+            };
+            layout.Controls.Add(meta, 0, 3);
 
             var close = new UmiButton { Dock = DockStyle.Right, Width = 108, DialogResult = DialogResult.OK,
                 Text = english ? "Close" : "Đóng" };
             UiTheme.StyleButton(close, UmiButtonStyle.Secondary);
             var footer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0) };
             footer.Controls.Add(close);
-            layout.Controls.Add(footer, 0, 3);
+            layout.Controls.Add(footer, 0, 4);
             Controls.Add(layout);
             AcceptButton = close;
             CancelButton = close;

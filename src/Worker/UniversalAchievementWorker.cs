@@ -83,6 +83,12 @@ internal static class UniversalAchievementWorker
         [MarshalAs(UnmanagedType.LPStr)] string achievementId,
         [MarshalAs(UnmanagedType.I1)] out bool achieved);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private delegate bool GetAchievementAndUnlockTime(IntPtr userStats,
+        [MarshalAs(UnmanagedType.LPStr)] string achievementId,
+        [MarshalAs(UnmanagedType.I1)] out bool achieved, out uint unlockTime);
+
     [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
     [return: MarshalAs(UnmanagedType.I1)]
     private delegate bool GetAchievementMethod(
@@ -309,6 +315,7 @@ internal static class UniversalAchievementWorker
             GetNumAchievements getNumAchievements = TryLoadFunction<GetNumAchievements>(module, "SteamAPI_ISteamUserStats_GetNumAchievements");
             GetAchievementName getAchievementName = TryLoadFunction<GetAchievementName>(module, "SteamAPI_ISteamUserStats_GetAchievementName");
             GetAchievement getAchievement = TryLoadFunction<GetAchievement>(module, "SteamAPI_ISteamUserStats_GetAchievement");
+            GetAchievementAndUnlockTime getUnlockTime = TryLoadFunction<GetAchievementAndUnlockTime>(module, "SteamAPI_ISteamUserStats_GetAchievementAndUnlockTime");
             GetAchievementDisplayAttribute getDisplayAttribute = TryLoadFunction<GetAchievementDisplayAttribute>(module, "SteamAPI_ISteamUserStats_GetAchievementDisplayAttribute");
             SetAchievement setAchievement = TryLoadFunction<SetAchievement>(module, "SteamAPI_ISteamUserStats_SetAchievement");
             StoreStats storeStats = TryLoadFunction<StoreStats>(module, "SteamAPI_ISteamUserStats_StoreStats");
@@ -422,9 +429,18 @@ internal static class UniversalAchievementWorker
                     if (string.IsNullOrEmpty(displayName))
                         displayName = achievementId;
 
+                    uint unlockSeconds = 0;
+                    if (achieved && getUnlockTime != null)
+                    {
+                        bool timeState;
+                        uint stamp;
+                        if (getUnlockTime(userStats, achievementId, out timeState, out stamp) && timeState)
+                            unlockSeconds = stamp;
+                    }
                     Console.WriteLine(
                         "ACHIEVEMENT=" + index + "|" + (achieved ? "1" : "0") + "|"
-                        + EncodeField(achievementId) + "|" + EncodeField(displayName) + "|" + EncodeField(description));
+                        + EncodeField(achievementId) + "|" + EncodeField(displayName) + "|"
+                        + EncodeField(description) + "|" + unlockSeconds);
                 }
                 Console.WriteLine("RESULT=LIST_SUCCESS");
                 return 0;

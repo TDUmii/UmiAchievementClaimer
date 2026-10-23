@@ -43,3 +43,7 @@ See [DESIGN.md](DESIGN.md) for the shipped visual system, [README.md](README.md)
 - Preflight is read-only; worker timeouts are 90 seconds (list) and 120 seconds (selected claim).
 - Favorites/recent games persist only numeric AppIDs. Achievement sorting does not modify selected items.
 - A reproducible Windows portable package and tag-triggered GitHub Actions workflow support release preparation. Public release is not equivalent to Steam compatibility certification.
+
+## Read-only Insights 1.11.0
+
+Persist at most 30 unique successful scans per Windows profile and Steam AppID. Public rarity never requires account authentication. Claim recovery persists only explicit pre-claim baseline snapshots; rescan is always read-only and never retries Claim. Time, rarity and Steam-server synchronization can remain unknown. See docs/QA_V1_11.md.

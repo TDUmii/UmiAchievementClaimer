@@ -168,3 +168,7 @@ The achievement explorer renders its empty-state guidance directly in the grid's
 ## Native UI additions — v1.10.0
 
 The main toolbar now has a compact Sort control beside the status filters and Quick select menu, preserving the Steam Midnight dark surfaces. A Preflight command is visible in the native header. The Cancel button appears only during worker execution, and all status reports distinguish cancelled/timed-out operations from ordinary errors. Double-clicking an achievement opens a read-only details dialog. The Steam library dialog offers Favorites-only filtering and a favorite toggle; cards continue to use a concise two-line, accessible game list. See docs/QA_V1_10.md for scope and validation limits.
+
+## Insights 1.11.0
+
+Steam Midnight Insights is a read-only dialog with local game metrics, snapshot history, timeline drill-down and recovery comparison, plus manual CSV export and update checking. Achievement Inspector displays public global rarity and optional native unlock time, with explicit unavailable fallbacks. The main header exposes Insights without changing the Claim flow.
